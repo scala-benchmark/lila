@@ -1,0 +1,12 @@
+{
+  "name": "swiss",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "lib": "workspace:*",
+    "flatpickr": "^4.6.13"
+  },
+  "build": {
+    "bundle": "src/swiss.ts"
+  }
+}

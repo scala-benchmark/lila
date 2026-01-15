@@ -1,0 +1,14 @@
+{
+  "name": "puzzle",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "chart.js": "4.4.8",
+    "lib": "workspace:*",
+    "keyboardMove": "workspace:*",
+    "voice": "workspace:*"
+  },
+  "build": {
+    "bundle": "src/**/puzzle.*ts"
+  }
+}
