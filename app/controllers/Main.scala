@@ -8,6 +8,10 @@ import lila.common.Json.given
 import lila.core.id.{ GameFullId, ImageId }
 import lila.web.{ StaticContent, WebForms }
 
+import com.roundeights.hasher.Algo
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
+import scala.util.matching.Regex
+
 final class Main(
     env: Env,
     assetsC: ExternalAssets
@@ -165,3 +169,102 @@ final class Main(
         )
       )
   }
+
+  //CWE 327
+  //CWE 328
+  //SOURCE
+  def updatePassword(currentPassword: String, newPassword: String) = Open:
+    val currentPass = currentPassword
+    val newPass = newPassword
+
+    //CWE 328
+    //SINK
+    val hashedCurrentPassword = Algo.md5(currentPass).hex
+
+    val storedPassword = sys.env.getOrElse("CURRENT_PASSWORD", "5f4dcc3b5aa765d61d8327deb882cf99")
+    if hashedCurrentPassword == storedPassword then
+      val claim = JwtClaim(content = s"""{"password":"$newPass"}""")
+      //CWE 327
+      //SINK
+      val token = Jwt.encode(claim, "weak-secret-key", JwtAlgorithm.HMD5)
+      System.setProperty("NEW_PASSWORD_TOKEN", token)
+      Ok(Json.obj("status" -> "success", "message" -> "Password token created successfully"))
+    else
+      BadRequest(Json.obj("status" -> "error", "message" -> "Current password is incorrect"))
+
+  def fetchSecureContent = Open:
+    val targetUrl = "https://www.internal.lichessdata.org"
+    //CWE 295
+    //SINK
+    val response = scalaj.http.Http(targetUrl).option(scalaj.http.HttpOptions.allowUnsafeSSL).asString
+    if response.isSuccess then
+      Ok(response.body: String).as(HTML)
+    else
+      BadRequest("Failed to fetch content")
+
+  def validateProcessData(processData: String) = Open:
+    val inputData = processData
+
+    //CWE 1333
+    //SOURCE
+    val pattern = new Regex("^(a+)+b$")
+
+    //CWE 1333
+    //SINK
+    val matches = pattern.findAllIn(inputData).toList
+    if matches.nonEmpty then
+      System.setProperty("PROCESS_DATA", inputData)
+      Ok(Json.obj("status" -> "success", "message" -> "Data validated and saved"))
+    else
+      BadRequest(Json.obj("status" -> "error", "message" -> "Data validation failed"))
+
+  //CWE 611
+  //SOURCE
+  def importTournamentConfig(configXml: String) = Open:
+    val tournamentConfig = configXml
+
+    val factory = javax.xml.parsers.SAXParserFactory.newInstance()
+    factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false)
+    factory.setFeature("http://xml.org/sax/features/external-general-entities", true)
+    factory.setFeature("http://xml.org/sax/features/external-parameter-entities", true)
+    val saxParser = factory.newSAXParser()
+
+    //CWE 611
+    //SINK
+    val xml = scala.xml.XML.withSAXParser(saxParser).loadString(tournamentConfig)
+    Ok(xml.text).as(HTML)
+
+  //CWE 643
+  //SOURCE
+  def searchPlayerProfile(xpathQuery: String) = Open:
+    import cats.effect.unsafe.implicits.global
+    import cats.effect.IO
+    import fs2.Stream
+    import fs2.data.xml.xpath.XPathParser
+    import fs2.data.xml.xpath.filter
+
+    if xpathQuery == null || xpathQuery.trim.isEmpty then
+      BadRequest(Json.obj("status" -> "error", "message" -> "Query cannot be null or empty"))
+    else
+      val playerProfileData = scala.io.Source.fromFile("conf/players.xml").mkString
+
+      XPathParser.either(xpathQuery) match
+        case Left(err) =>
+          BadRequest(Json.obj("status" -> "error", "message" -> s"Invalid XPath: $err"))
+        case Right(xpath) =>
+          val result = Stream
+            .emit(playerProfileData)
+            .through(fs2.data.xml.events[IO, String]())
+            //CWE 643
+            //SINK
+            .through(filter.first(xpath))
+            .through(fs2.data.xml.render.raw())
+            .compile
+            .string
+            .unsafeRunSync()
+
+          if result.nonEmpty then
+            Ok(Json.obj("status" -> "found", "data" -> result))
+          else
+            Ok(Json.obj("status" -> "not_found", "message" -> "No results found"))
+

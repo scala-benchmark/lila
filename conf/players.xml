@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<players>
+  <player>
+    <name>magnus_fan</name>
+    <rating>2145</rating>
+    <country>Norway</country>
+  </player>
+  <player>
+    <name>chess_master99</name>
+    <rating>1987</rating>
+    <country>USA</country>
+  </player>
+  <player>
+    <name>tactical_queen</name>
+    <rating>1756</rating>
+    <country>Russia</country>
+  </player>
+  <player>
+    <name>endgame_wizard</name>
+    <rating>2034</rating>
+    <country>India</country>
+  </player>
+  <player>
+    <name>blitz_king</name>
+    <rating>2300</rating>
+    <country>Germany</country>
+  </player>
+</players>
+
