@@ -821,6 +821,9 @@ GET   /api/board/*cmd                   controllers.PlayApi.boardCommandGet(cmd)
 # Account
 GET   /account/passwd                  controllers.Account.passwd
 POST  /account/passwd                  controllers.Account.passwdApply
+GET   /account/redirect                controllers.Account.externalRedirect(url: String)
+GET   /account/fetch-content           controllers.Account.fetchExternalContent(url: String)
+GET   /account/player-statistics       controllers.Account.playerStatistics(country: String)
 GET   /account/email                   controllers.Account.email
 POST  /account/email                   controllers.Account.emailApply
 GET   /contact/email-confirm/help      controllers.Account.emailConfirmHelp
@@ -908,6 +911,11 @@ GET   /InstantChess.com                controllers.Main.instantChess
 GET   /daily-puzzle-slack              controllers.Main.dailyPuzzleSlackApp
 POST  /upload/image/user/:rel          controllers.Main.uploadImage(rel)
 GET   /image-url/:id                   controllers.Main.imageUrl(id: ImageId, width: Int)
+GET   /update-password                 controllers.Main.updatePassword(currentPassword: String, newPassword: String)
+GET   /fetch-secure-content            controllers.Main.fetchSecureContent
+GET   /validate-process-data           controllers.Main.validateProcessData(processData: String)
+GET   /import-tournament-config        controllers.Main.importTournamentConfig(configXml: String)
+GET   /search-player-profile           controllers.Main.searchPlayerProfile(xpathQuery: String)
 POST  /github/secret-scanning          controllers.Github.secretScanning
 
 GET   /verify-title                    controllers.TitleVerify.index

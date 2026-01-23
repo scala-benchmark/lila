@@ -14,6 +14,11 @@ import lila.web.AnnounceApi
 import lila.core.user.KidMode
 import lila.security.IsPwned
 import lila.core.security.ClearPassword
+import scalaj.http.Http
+import doobie.*
+import doobie.implicits.*
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 
 final class Account(
     env: Env,
@@ -408,3 +413,54 @@ final class Account(
             Ok.chunked(source.map(_ + "\n")).asAttachmentStream(s"lichess_${user.username}.txt")
         else Ok.page(pages.data(user))
   }
+
+  private def checkUrlLength(url: String): String =
+    if url.length > 2000 then
+      println(s"Warning: URL length exceeds recommended limit: ${url.length} characters")
+    url
+
+  private def logUrlAccess(url: String): String =
+    if url.contains("?") then
+      println(s"Info: URL contains query parameters")
+    url
+
+  //CWE 601
+  //SOURCE
+  def externalRedirect(url: String) = Open:
+    val redirectUrl = url
+    val checkedUrl = checkUrlLength(redirectUrl)
+    val validatedUrl = logUrlAccess(checkedUrl)
+    //CWE 601
+    //SINK
+    Redirect(validatedUrl)
+
+  //CWE 918
+  //SOURCE
+  def fetchExternalContent(url: String) = Open:
+    val targetUrl = url
+    //CWE 918
+    //SINK
+    val response = Http(targetUrl).asString
+    if response.isSuccess then
+      Ok(response.body).as(HTML)
+    else
+      BadRequest("Failed to fetch content")
+
+  def playerStatistics(country: String) = Open:
+    //CWE 798
+    //SOURCE
+    val dbPassword = "S3cur3P@ssw0rd!"
+
+    //CWE 798
+    //SINK
+    val xa = Transactor.fromDriverManager[IO](driver = "org.postgresql.Driver", url = "jdbc:postgresql://localhost:5432/lichess_analytics", user = "lichess_admin", password = dbPassword, logHandler = None)
+
+    val countryFilter = country
+    val query = sql"SELECT username, rating, games_played FROM player_statistics WHERE country = $countryFilter"
+      .query[(String, Int, Int)]
+      .to[List]
+    val results = query.transact(xa).unsafeRunSync()
+    val jsonResults = results.map { case (username, rating, games) =>
+      Json.obj("username" -> username, "rating" -> rating, "gamesPlayed" -> games)
+    }
+    Ok(Json.toJson(jsonResults))

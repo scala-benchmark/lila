@@ -48,11 +48,12 @@ Compile / scalaSource := baseDirectory.value / "app"
 Universal / sourceDirectory := baseDirectory.value / "dist"
 
 // format: off
-libraryDependencies ++= akka.bundle ++ playWs.bundle ++ macwire.bundle ++ scalalib.bundle ++ chess.bundle ++ Seq(
+libraryDependencies ++= akka.bundle ++ playWs.bundle ++ macwire.bundle ++ scalalib.bundle ++ chess.bundle ++ doobie.bundle ++ Seq(
   play.json, play.logback, compression, hasher,
   reactivemongo.driver, /* reactivemongo.kamon, */ maxmind, scalatags,
   kamon.core, kamon.influxdb, kamon.metrics,
-  scaffeine, caffeine, lettuce, uaparser, nettyTransport, reactivemongo.shaded, catsMtl
+  scaffeine, caffeine, lettuce, uaparser, nettyTransport, reactivemongo.shaded, catsMtl, scalajHttp,
+  scalaXml, jbcrypt, jwtScala, fs2DataXml, fs2Core, fs2Io
 ) ++ tests.bundle
 
 // influences the compilation order

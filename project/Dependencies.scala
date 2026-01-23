@@ -35,6 +35,20 @@ object Dependencies {
   val apacheMath = "org.apache.commons" % "commons-math3" % "3.6.1"
   val bloomFilter = "com.github.alexandrnikitin" %% "bloom-filter" % "0.13.1_lila-1"
   val kittens = "org.typelevel" %% "kittens" % "3.5.0"
+  val scalajHttp = ("org.scalaj" %% "scalaj-http" % "2.4.2").cross(CrossVersion.for3Use2_13)
+  val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "2.2.0"
+  val fs2DataXml = "org.gnieh" %% "fs2-data-xml" % "1.11.1"
+  val fs2Core = "co.fs2" %% "fs2-core" % "3.10.0"
+  val fs2Io = "co.fs2" %% "fs2-io" % "3.10.0"
+  val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
+  val jwtScala = "com.github.jwt-scala" %% "jwt-core" % "10.0.1"
+
+  object doobie {
+    val version = "1.0.0-RC5"
+    val core = "org.tpolecat" %% "doobie-core" % version
+    val postgres = "org.tpolecat" %% "doobie-postgres" % version
+    def bundle = Seq(core, postgres)
+  }
 
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.19.0" % Test
   val munitCheck = "org.scalameta" %% "munit-scalacheck" % "1.2.0" % Test
