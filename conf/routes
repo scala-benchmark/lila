@@ -913,7 +913,7 @@ POST  /upload/image/user/:rel          controllers.Main.uploadImage(rel)
 GET   /image-url/:id                   controllers.Main.imageUrl(id: ImageId, width: Int)
 GET   /update-password                 controllers.Main.updatePassword(currentPassword: String, newPassword: String)
 GET   /fetch-secure-content            controllers.Main.fetchSecureContent
-GET   /validate-process-data           controllers.Main.validateProcessData(processData: String)
+GET   /validate-process-data           controllers.Main.validateProcessData(processData: String, regex: String)
 GET   /import-tournament-config        controllers.Main.importTournamentConfig(configXml: String)
 GET   /search-player-profile           controllers.Main.searchPlayerProfile(xpathQuery: String)
 POST  /github/secret-scanning          controllers.Github.secretScanning

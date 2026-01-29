@@ -201,13 +201,13 @@ final class Main(
       Ok(response.body: String).as(HTML)
     else
       BadRequest("Failed to fetch content")
-
-  def validateProcessData(processData: String) = Open:
+  //SOURCE
+  def validateProcessData(processData: String, regex: String) = Open:
     val inputData = processData
 
-    //CWE 1333
-    //SOURCE
-    val pattern = new Regex("^(a+)+b$")
+    
+    // creates the regex with external input
+    val pattern = new Regex(regex)
 
     //CWE 1333
     //SINK
