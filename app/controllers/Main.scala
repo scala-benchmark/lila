@@ -170,7 +170,7 @@ final class Main(
       )
   }
 
-  //CWE 327
+  
   //CWE 328
   //SOURCE
   def updatePassword(currentPassword: String, newPassword: String) = Open:
@@ -184,8 +184,8 @@ final class Main(
     val storedPassword = sys.env.getOrElse("CURRENT_PASSWORD", "5f4dcc3b5aa765d61d8327deb882cf99")
     if hashedCurrentPassword == storedPassword then
       val claim = JwtClaim(content = s"""{"password":"$newPass"}""")
-      //CWE 327
-      //SINK
+      
+      
       val token = Jwt.encode(claim, "weak-secret-key", JwtAlgorithm.HMD5)
       System.setProperty("NEW_PASSWORD_TOKEN", token)
       Ok(Json.obj("status" -> "success", "message" -> "Password token created successfully"))
