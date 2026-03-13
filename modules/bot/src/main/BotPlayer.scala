@@ -39,7 +39,7 @@ final class BotPlayer(
         val source = (d.room == "spectator").option {
           PublicSource.Watcher(gameId)
         }
-        chatApi.userChat.write(chatId, me, d.text, publicSource = source, _.round))
+        chatApi.userChat.write(chatId, me, d.text, publicSource = source, _.round).void)
 
   def rematchAccept(id: GameId)(using Me): Fu[Boolean | EitherBotLimit] = rematch(id, accept = true)
 

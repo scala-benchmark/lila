@@ -21,6 +21,7 @@ final class Env(
     userApi: lila.core.user.UserApi,
     lightUserApi: LightUserApi,
     userRepo: lila.core.user.UserRepo,
+    coachApi: lila.coach.CoachApi,
     db: lila.db.Db,
     flood: lila.core.security.FloodApi,
     spam: lila.core.security.SpamApi,

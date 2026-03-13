@@ -69,7 +69,7 @@ lazy val modules = Seq(
   memo, rating,
   // level 5
   game, gathering, study, user, puzzle, analyse,
-  report, pref, chat, playban, lobby, mailer, oauth,
+  report, pref, chat, lobby, mailer, oauth,
   // level 6
   insight, evaluation, storm,
   // level 7
@@ -82,7 +82,7 @@ lazy val modules = Seq(
   // and then the smaller ones
   pool, lobby, relation, tv, coordinate, feed, history, recap,
   shutup, appeal, irc, explorer, learn, event, coach,
-  practice, evalCache, irwin, bot, racer, cms, i18n, jsBot,
+  practice, playban, evalCache, irwin, bot, racer, cms, i18n, jsBot,
   socket, bookmark, studySearch, gameSearch, forumSearch, teamSearch,
 )
 
@@ -151,7 +151,7 @@ lazy val storm = module("storm",
 )
 
 lazy val racer = module("racer",
-  Seq(storm, room),
+  Seq(storm, room, setup),
   Seq()
 )
 
@@ -181,12 +181,12 @@ lazy val coordinate = module("coordinate",
 )
 
 lazy val feed = module("feed",
-  Seq(memo, ui),
+  Seq(memo, ui, forum),
   Seq()
 )
 
 lazy val ublog = module("ublog",
-  Seq(search, report),
+  Seq(search, report, web),
   Seq(bloomFilter)
 )
 
@@ -202,7 +202,7 @@ lazy val perfStat = module("perfStat",
 
 lazy val history = module("history",
   Seq(rating, memo),
-  Seq()
+  Seq(kantanXpath)
 )
 
 lazy val search = module("search",
@@ -211,7 +211,7 @@ lazy val search = module("search",
 )
 
 lazy val chat = module("chat",
-  Seq(memo, ui),
+  Seq(memo, ui, coach),
   Seq()
 )
 
@@ -246,7 +246,7 @@ lazy val game = module("game",
 )
 
 lazy val gameSearch = module("gameSearch",
-  Seq(search, ui),
+  Seq(search, ui, msg),
   tests.bundle
 )
 
@@ -262,7 +262,7 @@ lazy val bot = module("bot",
 )
 
 lazy val analyse = module("analyse",
-  Seq(tree, memo, ui),
+  Seq(tree, memo, ui, gameSearch),
   tests.bundle
 ).dependsOn(coreI18n % "test->test")
 
@@ -287,7 +287,7 @@ lazy val lobby = module("lobby",
 )
 
 lazy val setup = module("setup",
-  Seq(lobby),
+  Seq(lobby, ublog),
   Seq()
 )
 
@@ -352,12 +352,12 @@ lazy val shutup = module("shutup",
 )
 
 lazy val challenge = module("challenge",
-  Seq(game, room, oauth),
+  Seq(game, room, oauth, feed),
   Seq(lettuce, catsMtl) ++ tests.bundle
 )
 
 lazy val fide = module("fide",
-  Seq(memo, ui),
+  Seq(memo, ui, history),
   Seq()
 )
 
@@ -393,11 +393,11 @@ lazy val evalCache = module("evalCache",
 
 lazy val practice = module("practice",
   Seq(study),
-  Seq()
+  Seq(zioJdbc)
 )
 
 lazy val playban = module("playban",
-  Seq(memo),
+  Seq(memo, practice),
   tests.bundle
 )
 
@@ -418,7 +418,7 @@ lazy val mailer = module("mailer",
 
 lazy val plan = module("plan",
   Seq(memo, ui),
-  tests.bundle
+  Seq(scalajHttp) ++ tests.bundle
 )
 
 lazy val relation = module("relation",
@@ -432,7 +432,7 @@ lazy val pref = module("pref",
 )
 
 lazy val msg = module("msg",
-  Seq(coreI18n, memo),
+  Seq(coreI18n, memo, plan),
   Seq()
 )
 
@@ -462,7 +462,7 @@ lazy val clas = module("clas",
 )
 
 lazy val bookmark = module("bookmark",
-  Seq(db),
+  Seq(db, appeal),
   Seq()
 )
 
@@ -472,7 +472,7 @@ lazy val report = module("report",
 )
 
 lazy val appeal = module("appeal",
-  Seq(memo, ui),
+  Seq(memo, ui, fide),
   Seq()
 )
 

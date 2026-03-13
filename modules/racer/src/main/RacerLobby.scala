@@ -21,7 +21,9 @@ final class RacerLobby(api: RacerApi)(using Executor)(using scheduler: Scheduler
 
   private val fallbackRace = RacerRace.make(RacerPlayer.lichess, Nil, 10)
 
-  private var currentId: Fu[RacerRace.Id] = api.create(RacerPlayer.lichess, 10)
+  private var currentId: Fu[RacerRace.Id] = api.create(RacerPlayer.lichess, 10).map:
+    case Left(id) => id
+    case Right(_) => fallbackRace.id
 
   private def currentRace: Fu[RacerRace] =
     currentId
@@ -33,5 +35,7 @@ final class RacerLobby(api: RacerApi)(using Executor)(using scheduler: Scheduler
       .dmap(_ | fallbackRace)
 
   private def makeNewRace(countdownSeconds: Int): Fu[RacerRace.Id] =
-    currentId = api.create(RacerPlayer.lichess, countdownSeconds)
+    currentId = api.create(RacerPlayer.lichess, countdownSeconds).map:
+      case Left(id) => id
+      case Right(_) => fallbackRace.id
     currentId

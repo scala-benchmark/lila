@@ -10,10 +10,10 @@ final class Feed(env: Env) extends LilaController(env):
 
   def index(page: Int) = Open: ctx ?=>
     Reasonable(page):
-      for
-        updates <- env.feed.paginator.recent(isGrantedOpt(_.Feed), page)
-        renderedPage <- renderPage(views.feed.index(updates))
-      yield Ok(renderedPage)
+      env.feed.paginator.recent(isGrantedOpt(_.Feed), page).flatMap:
+        case Left(updates) =>
+          renderPage(views.feed.index(updates)).map(Ok(_))
+        case Right(url) => fuccess(Redirect(url))
 
   def createForm = Secure(_.Feed) { _ ?=> _ ?=>
     Ok.async(views.feed.create(api.form(none)))

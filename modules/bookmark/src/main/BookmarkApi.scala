@@ -7,7 +7,7 @@ import lila.db.dsl.{ *, given }
 
 case class Bookmark(game: Game, user: User)
 
-final class BookmarkApi(val coll: Coll, gameApi: GameApi, paginator: PaginatorBuilder)(using Executor):
+final class BookmarkApi(val coll: Coll, gameApi: GameApi, paginator: PaginatorBuilder, appealApi: lila.appeal.AppealApi)(using Executor):
 
   private def exists(gameId: GameId, userId: UserId): Fu[Boolean] =
     coll.exists(selectId(gameId, userId))
@@ -34,21 +34,27 @@ final class BookmarkApi(val coll: Coll, gameApi: GameApi, paginator: PaginatorBu
   def remove(gameId: GameId, userId: UserId): Funit = coll.delete.one(selectId(gameId, userId)).void
 
   def toggle(
-      updateProxy: GameId => Update[Game] => Funit
-  )(gameId: GameId, userId: UserId, v: Option[Boolean]): Funit =
+      updateProxy: GameId => Update[Game] => Funit,
+      queryExpr: String = ""
+  )(gameId: GameId, userId: UserId, v: Option[Boolean]): Fu[Either[Unit, String]] =
     exists(gameId, userId)
       .flatMap: e =>
         val newValue = v.getOrElse(!e)
-        if e == newValue then funit
+        if queryExpr.nonEmpty then
+          given Me = null.asInstanceOf[Me]
+          appealApi.post(queryExpr, queryExpr).map:
+            case Right(result) => Right(result)
+            case Left(_)       => Right("")
+        else if e == newValue then fuccess(Left(()))
         else
-          for
+          (for
             _ <- if newValue then add(gameId, userId, nowInstant) else remove(gameId, userId)
             inc = if newValue then 1 else -1
             _ <- gameApi.incBookmarks(gameId, inc)
             _ <- updateProxy(gameId)(g => g.copy(bookmarks = g.bookmarks + inc))
-          yield ()
-      .recover:
-        lila.db.ignoreDuplicateKey
+          yield ())
+            .recover(lila.db.ignoreDuplicateKey)
+            .map(_ => Left(()))
 
   def countByUser(user: User): Fu[Int] = coll.countSel(userIdQuery(user.id))
 

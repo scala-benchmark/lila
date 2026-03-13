@@ -21,4 +21,4 @@ final class Env(
   lila.common.Bus.sub[lila.core.game.PerfsUpdate]:
     case lila.core.game.PerfsUpdate(game, bothPerfs) =>
       bothPerfs.mapList: uwp =>
-        api.add(uwp.user, game, uwp.perfs)
+        api.add(uwp.user, game, uwp.perfs).void

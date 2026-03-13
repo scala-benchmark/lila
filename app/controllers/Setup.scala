@@ -42,7 +42,8 @@ final class Setup(
             for
               origUser <- ctx.user.traverse(env.user.perfsRepo.withPerf(_, config.perfType))
               destUser <- userId.so(env.user.api.enabledWithPerf(_, config.perfType))
-              denied <- destUser.so(u => env.challenge.granter.isDenied(u.user, config.perfKey.some))
+              deniedEither <- destUser.fold(fuccess(Left(none[lila.challenge.ChallengeDenied]): Either[Option[lila.challenge.ChallengeDenied], String]))(u => env.challenge.granter.isDenied(u.user, config.perfKey.some))
+              denied = deniedEither.left.toOption.flatten
               result <- denied match
                 case Some(denied) =>
                   val message = lila.challenge.ChallengeDenied.translated(denied)
@@ -108,13 +109,15 @@ final class Setup(
                   me <- ctx.user.traverse(env.user.api.withPerfs)
                   given Perf = me.fold(lila.rating.Perf.default)(_.perfs(userConfig.perfType))
                   blocking <- ctx.userId.so(env.relation.api.fetchBlocking)
-                  res <- processor.hook(
+                  resEither <- processor.hook(
                     userConfig.withinLimits,
                     sri,
                     req.sid,
                     lila.core.pool.Blocking(blocking)
                   )(using me)
-                yield hookResponse(res)
+                yield resEither match
+                  case Left(res) => hookResponse(res)
+                  case Right(_)  => JsonBadRequest("Unexpected result")
         )
 
   def like(sri: Sri, gameId: GameId) = Open:
@@ -136,8 +139,10 @@ final class Setup(
                 )(hookConfig.withRatingRange)
                 .updateFrom(game)
               allBlocking = lila.core.pool.Blocking(blocking ++ game.userIds)
-              hookResult <- processor.hook(hookConfigWithRating, sri, ctx.req.sid, allBlocking)(using orig)
-            yield hookResponse(hookResult)
+              hookResultEither <- processor.hook(hookConfigWithRating, sri, ctx.req.sid, allBlocking)(using orig)
+            yield hookResultEither match
+              case Left(hookResult) => hookResponse(hookResult)
+              case Right(_)         => JsonBadRequest("Unexpected result")
 
   def boardApiHook = WithBoardApiHookAuthor { (author, reqSri) => ctx ?=>
     forms

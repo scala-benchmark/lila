@@ -21,7 +21,7 @@ final class Messenger(api: ChatApi):
     else api.userChat.volatile(game.id.into(ChatId), message, _.round)
 
   def watcher(gameId: GameId, userId: UserId, text: String) =
-    api.userChat.write(gameWatcherId(gameId), userId, text, PublicSource.Watcher(gameId).some, _.round)
+    api.userChat.write(gameWatcherId(gameId), userId, text, PublicSource.Watcher(gameId).some, _.round).void
 
   private val whisperCommands = List("/whisper ", "/w ", "/W ")
 
@@ -30,10 +30,10 @@ final class Messenger(api: ChatApi):
       .collectFirst:
         case command if text.startsWith(command) =>
           val source = PublicSource.Watcher(gameId)
-          api.userChat.write(gameWatcherId(gameId), userId, text.drop(command.length), source.some, _.round)
+          api.userChat.write(gameWatcherId(gameId), userId, text.drop(command.length), source.some, _.round).void
       .getOrElse:
         (!text.startsWith("/")).so: // mistyped command?
-          api.userChat.write(gameId.into(ChatId), userId, text, publicSource = none, _.round)
+          api.userChat.write(gameId.into(ChatId), userId, text, publicSource = none, _.round).void
 
   def owner(game: Game, anonColor: Color, text: String): Funit =
     (game.sourceIs(_.Friend) || presets.contains(text))
@@ -48,7 +48,7 @@ final class Messenger(api: ChatApi):
   private val ggwp = "Good game, well played"
 
   private[round] def sayGG(pov: Pov, userId: UserId): Funit =
-    api.userChat.write(pov.gameId.into(ChatId), userId, ggwp, none, _.round)
+    api.userChat.write(pov.gameId.into(ChatId), userId, ggwp, none, _.round).void
 
   private val presets = Set(
     "Hello",

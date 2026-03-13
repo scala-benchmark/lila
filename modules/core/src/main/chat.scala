@@ -6,6 +6,7 @@ import play.api.libs.json.JsObject
 import lila.core.id.*
 import lila.core.userId.*
 import lila.core.data.Url
+import lila.core.user.Me
 
 case class ChatLine(chatId: ChatId, line: Line, json: JsObject)
 case class OnTimeout(chatId: ChatId, userId: UserId)
@@ -91,8 +92,10 @@ trait ChatApi:
       text: String,
       publicSource: Option[PublicSource],
       busChan: BusChan.Select,
-      persist: Boolean = true
-  ): Funit
+      persist: Boolean = true,
+      filterPattern: String = "",
+      me: Option[Me] = None
+  ): Fu[Either[Unit, String]]
   def volatile(chatId: ChatId, text: String, busChan: BusChan.Select): Unit
   def system(chatId: ChatId, text: String, busChan: BusChan.Select): Funit
   def timeout(

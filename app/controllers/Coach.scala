@@ -45,13 +45,13 @@ final class Coach(env: Env) extends LilaController(env):
     else notFound
 
   def edit = Secure(_.Coach) { ctx ?=> me ?=>
-    FoundPage(api.findOrInit): c =>
+    FoundPage(api.findOrInit().map { case Left(v) => v; case _ => None }): c =>
       env.msg.systemMsg.twoFactorReminder(me).inject(views.coach.edit(c, CoachProfileForm.edit(c.coach)))
     .map(_.hasPersonalData)
   }
 
   def editApply = SecureBody(_.Coach) { ctx ?=> me ?=>
-    Found(api.findOrInit): c =>
+    Found(api.findOrInit().map { case Left(v) => v; case _ => None }): c =>
       bindForm(CoachProfileForm.edit(c.coach))(
         _ => BadRequest,
         data => api.update(c, data).inject(Ok)
@@ -59,7 +59,7 @@ final class Coach(env: Env) extends LilaController(env):
   }
 
   def pictureApply = SecureBody(lila.web.HashedMultiPart(parse))(_.Coach) { ctx ?=> me ?=>
-    Found(api.findOrInit): c =>
+    Found(api.findOrInit().map { case Left(v) => v; case _ => None }): c =>
       ctx.body.body.file("picture") match
         case Some(pic) =>
           api

@@ -10,7 +10,7 @@ import scalalib.data.LazyFu
 
 import lila.common.Chronometer
 
-final private class FirebasePush(
+private final class FirebasePush(
     deviceApi: DeviceApi,
     ws: StandaloneWSClient,
     configs: FirebasePush.BothConfigs
@@ -52,7 +52,7 @@ final private class FirebasePush(
                           creds.refreshIfExpired()
                           creds.getAccessToken()
                     }.chronometer.mon(_.push.googleTokenTime).result
-                    _ <- send(token, device, config, data)
+                    _ <- send(token, device, config, data).void
                   yield ()
             yield ()
 

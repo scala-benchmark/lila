@@ -25,7 +25,8 @@ final class Env(
     langPicker: lila.core.i18n.LangPicker,
     setupForm: lila.core.setup.SetupForm,
     oauthServer: lila.oauth.OAuthServer,
-    baseUrl: BaseUrl
+    baseUrl: BaseUrl,
+    feedPaginator: lila.feed.FeedPaginatorBuilder
 )(using
     scheduler: Scheduler
 )(using

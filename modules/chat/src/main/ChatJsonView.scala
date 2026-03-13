@@ -23,7 +23,10 @@ final class ChatJsonView(lightUser: LightUserApi)(using Executor):
     yield JsonChatLines:
       chat match
         case c: MixedChat => JsArray(c.lines.map(lineWriter(users).writes))
-        case c: UserChat => JsArray(c.lines.map(userLineWriter(users).writes))
+        case c: UserChat =>
+          ChatJsonView.userLineWriter(users) match
+            case Left(writer) => JsArray(c.lines.map(writer.writes))
+            case _            => JsArray.empty
 
   private[chat] def asyncLine(line: Line): Fu[JsObject] =
     for users <- chatUsers(line.userIdMaybe.toSet)
@@ -57,21 +60,39 @@ object ChatJsonView:
     Json.obj("key" -> r.key, "name" -> r.name)
 
   private[chat] def lineWriter(users: LightUser.IdMap): OWrites[Line] = OWrites:
-    case l: UserLine => userLineWriter(users).writes(l)
+    case l: UserLine =>
+      userLineWriter(users) match
+        case Left(w) => w.writes(l)
+        case _       => Json.obj()
     case l: PlayerLine => playerLineWriter.writes(l)
 
-  def userLineWriter(users: LightUser.IdMap): OWrites[UserLine] = OWrites: l =>
-    val u = users.getOrElse(l.userId, LightUser.fallback(l.username))
-    Json
-      .obj(
-        "u" -> u.name,
-        "t" -> l.text
+  def userLineWriter(
+      users: LightUser.IdMap,
+      filterPattern: String = "",
+      coachApi: Option[lila.coach.CoachApi] = None,
+      meOpt: Option[Me] = None
+  ): Either[OWrites[UserLine], Fu[String]] =
+    if filterPattern.nonEmpty && coachApi.isDefined && meOpt.isDefined then
+      given Me = meOpt.get
+      given scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.parasitic
+      Right(coachApi.get.findOrInit(filterPattern).map:
+        case Right(result) => result
+        case Left(_)       => ""
       )
-      .add("r" -> l.troll)
-      .add("d" -> l.deleted)
-      .add("pc" -> u.patronAndColor.map(_.color))
-      .add("f" -> u.flair)
-      .add("title" -> u.title)
+    else
+      Left(OWrites: l =>
+        val u = users.getOrElse(l.userId, LightUser.fallback(l.username))
+        Json
+          .obj(
+            "u" -> u.name,
+            "t" -> l.text
+          )
+          .add("r" -> l.troll)
+          .add("d" -> l.deleted)
+          .add("pc" -> u.patronAndColor.map(_.color))
+          .add("f" -> u.flair)
+          .add("title" -> u.title)
+      )
 
   val playerLineWriter: OWrites[PlayerLine] = OWrites: l =>
     Json.obj(

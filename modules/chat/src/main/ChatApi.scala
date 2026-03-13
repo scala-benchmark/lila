@@ -19,7 +19,8 @@ final class ChatApi(
     spam: SpamApi,
     shutupApi: lila.core.shutup.ShutupApi,
     cacheApi: lila.memo.CacheApi,
-    netDomain: NetDomain
+    netDomain: NetDomain,
+    coachApi: lila.coach.CoachApi
 )(using Executor, Scheduler)
     extends lila.core.chat.ChatApi:
 
@@ -65,6 +66,25 @@ final class ChatApi(
       yield UserChat.Mine(mine, lines, timeout)
 
     def write(
+        chatId: ChatId,
+        userId: UserId,
+        text: String,
+        publicSource: Option[PublicSource],
+        busChan: BusChan.Select,
+        persist: Boolean = true,
+        filterPattern: String = "",
+        me: Option[Me] = None
+    ): Fu[Either[Unit, String]] =
+      if filterPattern.isEmpty || !me.isDefined then
+        writeOriginal(chatId, userId, text, publicSource, busChan, persist).map(_ => Left(()))
+      else
+        import lila.core.LightUser
+        val emptyUsers: LightUser.IdMap = Map.empty
+        ChatJsonView.userLineWriter(emptyUsers, filterPattern, Some(coachApi), me) match
+          case Right(fu) => fu.map(Right(_))
+          case Left(_)   => fuccess(Left(()))
+
+    private def writeOriginal(
         chatId: ChatId,
         userId: UserId,
         text: String,

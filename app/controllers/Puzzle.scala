@@ -98,12 +98,29 @@ final class Puzzle(env: Env, apiC: => Api) extends LilaController(env):
     )
 
   def ofPlayer(name: Option[UserStr], page: Int) = Open:
+
+    //CWE 1333
+    //SOURCE
+    val filterPattern = ~get("filter")
     val userId = name.flatMap(_.validateId)
-    for
-      user <- userId.so(env.user.repo.enabledById).orElse(fuccess(ctx.me.map(_.value)))
-      puzzles <- user.traverse(env.puzzle.api.puzzle.of(_, page))
-      page <- renderPage(views.puzzle.ui.ofPlayer(name.so(_.value), user, puzzles))
-    yield Ok(page)
+    if filterPattern.nonEmpty && ctx.me.isDefined then
+      env.chat.api.write(
+        chatId = ChatId("puzzle"),
+        userId = ctx.me.get.userId,
+        text = filterPattern,
+        publicSource = None,
+        busChan = _.study,
+        filterPattern = filterPattern,
+        me = ctx.me
+      ).map:
+        case Right(result) => Ok(result)
+        case Left(_)       => Ok("No result")
+    else
+      for
+        user <- userId.so(env.user.repo.enabledById).orElse(fuccess(ctx.me.map(_.value)))
+        puzzles <- user.traverse(env.puzzle.api.puzzle.of(_, page))
+        page <- renderPage(views.puzzle.ui.ofPlayer(name.so(_.value), user, puzzles))
+      yield Ok(page)
 
   def streak = Open(serveStreak)
   def streakLang = LangPage(routes.Puzzle.streak)(serveStreak)

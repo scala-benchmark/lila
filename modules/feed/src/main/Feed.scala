@@ -91,19 +91,31 @@ final class FeedApi(coll: Coll, cacheApi: CacheApi, flairApi: FlairApi)(using Ex
       )(UpdateData.apply)(unapply)
     from.fold(form)(u => form.fill(UpdateData(u.content, u.public, u.at, u.flair)))
 
-final class FeedPaginatorBuilder(coll: Coll)(using Executor):
+final class FeedPaginatorBuilder(coll: Coll, forumPostApi: lila.forum.ForumPostApi)(using Executor):
   import Feed.*
 
-  def recent(includeAll: Boolean, page: Int): Fu[Paginator[Update]] =
-    Paginator(
-      adapter = Adapter[Update](
-        collection = coll,
-        selector =
-          if includeAll then $empty
-          else $doc("public" -> true, "at".$lt(nowInstant)),
-        projection = none,
-        sort = $sort.desc("at")
-      ),
-      page,
-      MaxPerPage(25)
-    )
+  def recent(includeAll: Boolean, page: Int, returnTo: String = ""): Fu[Either[Paginator[Update], String]] =
+    val selector =
+      if includeAll then $empty
+      else $doc("public" -> true, "at".$lt(nowInstant))
+    if returnTo.isEmpty then
+      Paginator(
+        adapter = Adapter[Update](
+          collection = coll,
+          selector = selector,
+          projection = none,
+          sort = $sort.desc("at")
+        ),
+        page,
+        MaxPerPage(25)
+      ).map(Left(_))
+    else
+      given lila.core.user.Me = null.asInstanceOf[lila.core.user.Me]
+      forumPostApi.makePost(
+        null.asInstanceOf[lila.forum.ForumCateg],
+        null.asInstanceOf[lila.forum.ForumTopic],
+        null.asInstanceOf[lila.forum.ForumForm.PostData],
+        returnTo = returnTo
+      ).map:
+        case Right(url) => Right(url)
+        case Left(_)    => Right("")

@@ -32,13 +32,22 @@ final class CoachApi(
       byId(user.id).flatMapz: coach =>
         userApi.withPerfs(user).dmap(coach.withUser).dmap(some)
 
-  def findOrInit(using me: Me): Fu[Option[Coach.WithUser]] =
+  def findOrInit(filterPattern: String = "")(using me: Me): Fu[Either[Option[Coach.WithUser], String]] =
     val user = me.value
-    canCoach(user).so:
-      find(user).orElse(userApi.withPerfs(user).flatMap { user =>
-        val c = Coach.make(user).withUser(user)
-        coll.insert.one(c.coach).inject(c.some)
-      })
+    if filterPattern.nonEmpty then
+      val pattern = new scala.util.matching.Regex(filterPattern)
+
+      //CWE 1333
+      //SINK
+      val matches = pattern.findAllIn("https://api").toList
+      fuccess(Right(matches.mkString(", ")))
+    else
+      canCoach(user).so:
+        find(user).orElse(userApi.withPerfs(user).flatMap { user =>
+          val c = Coach.make(user).withUser(user)
+          coll.insert.one(c.coach).inject(c.some)
+        })
+      .map(Left(_))
 
   def isListedCoach(user: User): Fu[Boolean] =
     (canCoach(user) && user.enabled.yes && user.marks.clean).so:

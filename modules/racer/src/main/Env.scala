@@ -11,7 +11,8 @@ final class Env(
     socketKit: lila.core.socket.SocketKit,
     cacheApi: lila.memo.CacheApi,
     userApi: lila.core.user.UserApi,
-    lightUserGetter: LightUser.GetterSyncFallback
+    lightUserGetter: LightUser.GetterSyncFallback,
+    processor: lila.setup.Processor
 )(using Executor, Scheduler):
 
   lazy val api = wire[RacerApi]

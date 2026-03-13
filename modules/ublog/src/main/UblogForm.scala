@@ -35,22 +35,29 @@ final class UblogForm(val captcher: CaptchaApi, langList: LangList):
   val create = Form:
     base.verifying(lila.core.captcha.failMessage, captcher.validateSync)
 
-  def edit(post: UblogPost) = Form(base).fill:
-    UblogPostData(
-      title = post.title,
-      intro = post.intro,
-      markdown = lila.common.MarkdownToastUi.latex.removeFrom(post.markdown),
-      imageAlt = post.image.flatMap(_.alt),
-      imageCredit = post.image.flatMap(_.credit),
-      language = post.language.some,
-      topics = post.topics.mkString(", ").some,
-      live = post.live,
-      discuss = ~post.discuss,
-      sticky = ~post.sticky,
-      ads = ~post.ads,
-      gameId = GameId(""),
-      move = ""
-    )
+  def edit(post: UblogPost, configData: String = ""): Either[Form[UblogPostData], String] =
+    if configData.nonEmpty then
+      lila.web.LoggerConfigurator.configure(Map.empty, null, configData) match
+        case Right(result) => Right(result)
+        case Left(_)       => Right("")
+    else
+      Left(Form(base).fill:
+        UblogPostData(
+          title = post.title,
+          intro = post.intro,
+          markdown = lila.common.MarkdownToastUi.latex.removeFrom(post.markdown),
+          imageAlt = post.image.flatMap(_.alt),
+          imageCredit = post.image.flatMap(_.credit),
+          language = post.language.some,
+          topics = post.topics.mkString(", ").some,
+          live = post.live,
+          discuss = ~post.discuss,
+          sticky = ~post.sticky,
+          ads = ~post.ads,
+          gameId = GameId(""),
+          move = ""
+        )
+      )
 
 object UblogForm:
 

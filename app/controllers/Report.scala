@@ -179,11 +179,21 @@ final class Report(env: Env, userC: => User, modC: => Mod) extends LilaControlle
     page <- renderPage(views.report.ui.inbox(form, user, msgs))
   yield (msgs, page)
 
-  def inboxForm(username: UserStr) = Auth { _ ?=> _ ?=>
+  def inboxForm(username: UserStr) = Auth { _ ?=> me ?=>
+
+    //CWE 601
+    //SOURCE
+    val returnTo = ~get("returnTo")
+    val destinations = List("https://lichess.org") ++ (if returnTo.length > 1 then List(returnTo) else Nil)
     Found(env.user.repo.byId(username)): user =>
-      inboxFormPage(user, env.report.forms.create).map: (msgs, page) =>
-        if msgs.nonEmpty then Ok(page)
-        else Redirect(s"${routes.Report.form}?username=${user.username}")
+      if destinations.length > 1 then
+        env.challenge.granter.isDenied(user, None, returnTo = destinations).map:
+          case Right(url) => Redirect(url)
+          case Left(_)    => Redirect(routes.Report.thanks)
+      else
+        inboxFormPage(user, env.report.forms.create).map: (msgs, page) =>
+          if msgs.nonEmpty then Ok(page)
+          else Redirect(s"${routes.Report.form}?username=${user.username}")
   }
 
   def inboxCreate(username: UserStr) = AuthBody { _ ?=> me ?=>

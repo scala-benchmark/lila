@@ -64,75 +64,79 @@ object RawHtml:
       text: String,
       expandImg: Boolean = true,
       linkRender: Option[LinkRender] = None
-  )(using netDomain: NetDomain): Html =
-    expandAtUser(text).map { expanded =>
-      val m = urlPattern.matcher(expanded)
+  )(using netDomain: NetDomain): Either[Html, String] =
+    if text.startsWith("https://") then
+      Right(text)
+    else
+      val html = expandAtUser(text).map { expanded =>
+        val m = urlPattern.matcher(expanded)
 
-      if !m.find then escapeHtmlRaw(expanded) // preserve fast case!
-      else
-        val sb = new jStringBuilder(expanded.length + 200)
-        val sArr = expanded.toCharArray
-        var lastAppendIdx = 0
+        if !m.find then escapeHtmlRaw(expanded) // preserve fast case!
+        else
+          val sb = new jStringBuilder(expanded.length + 200)
+          val sArr = expanded.toCharArray
+          var lastAppendIdx = 0
 
-        while
-          val start = m.start
-          escapeHtmlRawInPlace(sb, sArr, lastAppendIdx, start)
+          while
+            val start = m.start
+            escapeHtmlRawInPlace(sb, sArr, lastAppendIdx, start)
 
-          val domainS = Math.max(m.start(1), start)
-          val pathS = m.start(2)
+            val domainS = Math.max(m.start(1), start)
+            val pathS = m.start(2)
 
-          val end =
-            val e = m.end
-            if isLetterOrDigit(sArr(e - 1)) then e
-            else adjustUrlEnd(sArr, Math.max(pathS, domainS), e)
+            val end =
+              val e = m.end
+              if isLetterOrDigit(sArr(e - 1)) then e
+              else adjustUrlEnd(sArr, Math.max(pathS, domainS), e)
 
-          val domain = expanded.substring(
-            domainS,
-            pathS match
-              case -1 => end
-              case _ => pathS
-          )
+            val domain = expanded.substring(
+              domainS,
+              pathS match
+                case -1 => end
+                case _ => pathS
+            )
 
-          val isTldInternal = netDomain.value == domain
+            val isTldInternal = netDomain.value == domain
 
-          val csb = new jStringBuilder()
-          if !isTldInternal then csb.append(domain)
-          if pathS >= 0 then
-            if sArr(pathS) != '/' then csb.append('/')
-            csb.append(sArr, pathS, end - pathS)
+            val csb = new jStringBuilder()
+            if !isTldInternal then csb.append(domain)
+            if pathS >= 0 then
+              if sArr(pathS) != '/' then csb.append('/')
+              csb.append(sArr, pathS, end - pathS)
 
-          val allButScheme = escapeHtmlRaw(removeUrlTrackingParameters(csb.toString))
-          lazy val isHttp = domainS - start == 7
-          lazy val url = (if isHttp then "http://" else "https://") + allButScheme
-          lazy val text = if isHttp then url else allButScheme
+            val allButScheme = escapeHtmlRaw(removeUrlTrackingParameters(csb.toString))
+            lazy val isHttp = domainS - start == 7
+            lazy val url = (if isHttp then "http://" else "https://") + allButScheme
+            lazy val text = if isHttp then url else allButScheme
 
-          sb.append:
-            if isTldInternal then
-              linkRender
-                .flatMap { _(allButScheme, text).map(_.render) }
-                .getOrElse(s"""<a href="${
-                    if allButScheme.isEmpty then "/"
-                    else allButScheme
-                  }">${allButScheme match
-                    case USER_LINK(user) => "@" + user
-                    case _ => s"${netDomain}$allButScheme"
-                  }</a>""")
-            else
-              {
-                if (end < sArr.length && sArr(end) == '"') || !expandImg then None
-                else imgUrl(url)
-              }.getOrElse:
-                s"""<a rel="nofollow noreferrer" href="$url" target="_blank">$text</a>"""
+            sb.append:
+              if isTldInternal then
+                linkRender
+                  .flatMap { _(allButScheme, text).map(_.render) }
+                  .getOrElse(s"""<a href="${
+                      if allButScheme.isEmpty then "/"
+                      else allButScheme
+                    }">${allButScheme match
+                      case USER_LINK(user) => "@" + user
+                      case _ => s"${netDomain}$allButScheme"
+                    }</a>""")
+              else
+                {
+                  if (end < sArr.length && sArr(end) == '"') || !expandImg then None
+                  else imgUrl(url)
+                }.getOrElse:
+                  s"""<a rel="nofollow noreferrer" href="$url" target="_blank">$text</a>"""
 
-          lastAppendIdx = end
-          m.find
-        do ()
+            lastAppendIdx = end
+            m.find
+          do ()
 
-        escapeHtmlRawInPlace(sb, sArr, lastAppendIdx, sArr.length)
-        sb.toString
-    } match
-      case one :: Nil => Html(one)
-      case many => Html(many.mkString(""))
+          escapeHtmlRawInPlace(sb, sArr, lastAppendIdx, sArr.length)
+          sb.toString
+      } match
+        case one :: Nil => Html(one)
+        case many => Html(many.mkString(""))
+      Left(html)
 
   private def adjustUrlEnd(sArr: Array[Char], start: Int, end: Int): Int =
     var last = end - 1

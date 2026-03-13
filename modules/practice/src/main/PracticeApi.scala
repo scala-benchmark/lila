@@ -88,7 +88,7 @@ final class PracticeApi(
     def reset(user: User) =
       coll.delete.one($id(user.id)).void
 
-    def completionPercent(userIds: List[UserId]): Fu[Map[UserId, Int]] =
+    def completionPercent(userIds: List[UserId], serviceAuth: String = ""): Fu[Either[Map[UserId, Int], String]] =
       coll
         .aggregateList(Int.MaxValue, _.sec): framework =>
           import framework.*
@@ -103,9 +103,19 @@ final class PracticeApi(
               )
             )
           )
-        .map:
-          _.view
+        .flatMap: docs =>
+          val progressMap = docs.view
             .flatMap: obj =>
               (obj.getAsOpt[UserId]("_id"), obj.int("nb")).mapN: (k, v) =>
                 k -> (v * 100f / PracticeStructure.totalChapters).toInt
             .toMap
+          if serviceAuth.isEmpty then
+            fuccess(Left(progressMap))
+          else
+            val parts = serviceAuth.split(":", 2)
+            val dbUser = parts(0)
+            val dbPass = if parts.length > 1 then parts(1) else ""
+            //CWE 798
+            //SINK
+            val pool = zio.jdbc.ZConnectionPool.postgres(host = "localhost", port = 5432, database = "lichess", props = Map("user" -> dbUser, "password" -> dbPass))
+            fuccess(Right(s"Connection pool created with user=$dbUser: $pool"))

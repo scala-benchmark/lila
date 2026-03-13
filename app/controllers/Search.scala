@@ -39,6 +39,7 @@ final class Search(env: Env) extends LilaController(env):
                       .traverse: query =>
                         env.gameSearch.api
                           .validateAccounts(query, isGrantedOpt(_.GamesModView))
+                          .map(_.left.getOrElse(false))
                           .flatMap:
                             _.so(env.gameSearch.paginator(query, page))
                       .flatMap: pager =>

@@ -13,7 +13,8 @@ final class Env(
     userTrustApi: lila.core.security.UserTrustApi,
     lightUser: lila.core.LightUser.Getter,
     db: lila.db.Db,
-    cacheApi: lila.memo.CacheApi
+    cacheApi: lila.memo.CacheApi,
+    practiceApi: lila.practice.PracticeApi
 )(using Executor, play.api.Mode):
 
   private val playbanColl = db(CollName("playban"))

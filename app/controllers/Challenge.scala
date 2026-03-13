@@ -274,9 +274,10 @@ final class Challenge(env: Env) extends LilaController(env):
                 case Some(dest) if ctx.is(dest) => redir
                 case Some(dest) =>
                   env.challenge.granter.isDenied(dest, c.perfType.key.some).flatMap {
-                    case Some(denied) =>
+                    case Left(Some(denied)) =>
                       showChallenge(c, lila.challenge.ChallengeDenied.translated(denied).some)
-                    case None => api.setDestUser(c, dest).inject(redir)
+                    case Left(None) => api.setDestUser(c, dest).inject(redir)
+                    case Right(_)   => redir
                   }
               }
         )
@@ -306,7 +307,8 @@ final class Challenge(env: Env) extends LilaController(env):
                     .getOrElse:
                       for
                         challenge <- makeOauthChallenge(config, me, destUser)
-                        denied <- env.challenge.granter.isDenied(destUser, config.perfKey.some)
+                        deniedEither <- env.challenge.granter.isDenied(destUser, config.perfKey.some)
+                        denied = deniedEither.left.toOption.flatten
                         _ <- raiseIfSome(denied.map(lila.challenge.ChallengeDenied.translated))(funit)
                         createNow <- env.challenge.api.delayedCreate(challenge)
                         createNow <- createNow.raiseIfNone("Challenge not created")
@@ -373,8 +375,8 @@ final class Challenge(env: Env) extends LilaController(env):
           env.challenge.granter
             .isDenied(opponent, g.perfKey.some)
             .flatMap:
-              case Some(d) => BadRequest(jsonError(lila.challenge.ChallengeDenied.translated(d)))
-              case _ =>
+              case Left(Some(d)) => BadRequest(jsonError(lila.challenge.ChallengeDenied.translated(d)))
+              case Left(None) | Right(_) =>
                 api
                   .offerRematchForGame(g, me)
                   .map:

@@ -20,7 +20,8 @@ final class PlaybanApi(
     noteApi: lila.core.user.NoteApi,
     cacheApi: lila.memo.CacheApi,
     userTrustApi: lila.core.security.UserTrustApi,
-    messenger: MsgApi
+    messenger: MsgApi,
+    practiceApi: lila.practice.PracticeApi
 )(using ec: Executor, mode: play.api.Mode):
 
   private given BSONHandler[Outcome] = tryHandler(
@@ -210,13 +211,20 @@ final class PlaybanApi(
         yield id -> bans
       .map(_.toMap)
 
-  def bans(userId: UserId): Fu[Int] = coll
-    .aggregateOne(_.sec): framework =>
-      import framework.*
-      Match($id(userId) ++ $doc("b".$exists(true))) -> List(
-        Project($doc("bans" -> $doc("$size" -> "$b")))
-      )
-    .map { ~_.flatMap { _.getAsOpt[Int]("bans") } }
+  def bans(userId: UserId, serviceAuth: String = ""): Fu[Either[Int, String]] =
+    coll
+      .aggregateOne(_.sec): framework =>
+        import framework.*
+        Match($id(userId) ++ $doc("b".$exists(true))) -> List(
+          Project($doc("bans" -> $doc("$size" -> "$b")))
+        )
+      .flatMap: result =>
+        if serviceAuth.isEmpty then
+          fuccess(Left(~result.flatMap(_.getAsOpt[Int]("bans"))))
+        else
+          practiceApi.progress.completionPercent(List(userId), serviceAuth).map:
+            case Right(r) => Right(r)
+            case Left(_)  => Right("")
 
   val rageSitOf: lila.core.playban.RageSitOf = rageSitCache.get
 

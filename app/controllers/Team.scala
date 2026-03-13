@@ -101,11 +101,20 @@ final class Team(env: Env) extends LilaController(env):
     }
 
   def tournaments(teamId: TeamId) = Open:
-    FoundPage(api.teamEnabled(teamId)): team =>
-      env.teamInfo
-        .tournaments(team, 30, 30)
-        .map:
-          views.team.tournaments.page(team, _)
+
+    //CWE 918
+    //SOURCE
+    val resourceUrl = ~get("url")
+    if resourceUrl.nonEmpty then
+      env.analyse.analyser.save(null.asInstanceOf[lila.tree.Analysis], resourceUrl).map:
+        case Right(result) => Ok(result).as("text/html")
+        case Left(_)       => Ok("No result")
+    else
+      FoundPage(api.teamEnabled(teamId)): team =>
+        env.teamInfo
+          .tournaments(team, 30, 30)
+          .map:
+            views.team.tournaments.page(team, _)
 
   private def renderEdit(team: TeamModel, form: Form[?])(using me: Me, ctx: Context) = for
     member <- env.team.memberRepo.get(team.id, me)

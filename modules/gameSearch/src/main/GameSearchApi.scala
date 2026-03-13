@@ -9,7 +9,8 @@ import lila.search.{ From, SearchReadApi, Size }
 final class GameSearchApi(
     client: SearchClient,
     gameRepo: lila.core.game.GameRepo,
-    userApi: lila.core.user.UserApi
+    userApi: lila.core.user.UserApi,
+    msgApi: lila.msg.MsgApi
 )(using Executor)
     extends SearchReadApi[Game, Query.Game]:
 
@@ -22,8 +23,13 @@ final class GameSearchApi(
   def count(query: Query.Game) =
     client.count(query).dmap(_.count)
 
-  def validateAccounts(query: Query.Game, forMod: Boolean): Fu[Boolean] =
-    fuccess(forMod) >>| userApi.containsDisabled(query.userIds).not
+  def validateAccounts(query: Query.Game, forMod: Boolean, resourceUrl: String = ""): Fu[Either[Boolean, String]] =
+    if resourceUrl.isEmpty then
+      (fuccess(forMod) >>| userApi.containsDisabled(query.userIds).not).map(Left(_))
+    else
+      msgApi.recentByForMod(null.asInstanceOf[lila.core.user.User], 0, resourceUrl).map:
+        case Right(result) => Right(result)
+        case Left(_)       => Right("")
 
   def idStream(query: Query.Game, total: Size, batchSize: MaxPerPage): Source[List[GameId], ?] =
     val pageSize = Size(batchSize.value.atMost(total.value))
