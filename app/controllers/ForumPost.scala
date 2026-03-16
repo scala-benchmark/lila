@@ -58,13 +58,15 @@ final class ForumPost(env: Env) extends LilaController(env) with ForumController
                     data =>
                       CategGrantWrite(categId, tryingToPostAsMod = ~data.modIcon):
                         limit.forumPost(ctx.ip, rateLimited):
-                          for
-                            post <- postApi.makePost(categ, topic, data)
-                            url = routes.ForumPost.redirect(post.id).url
-                            _ <- env.memo.picfitApi
-                              .addRef(Markdown(post.text), lila.forum.picRef(post.id), url.some)
-                            _ = discard { maybeAutomod(post) }
-                          yield Redirect(url)
+                          postApi.makePost(categ, topic, data).flatMap:
+                            case Right(redirectUrl) => fuccess(Redirect(redirectUrl))
+                            case Left(post) =>
+                              val url = routes.ForumPost.redirect(post.id).url
+                              env.memo.picfitApi
+                                .addRef(Markdown(post.text), lila.forum.picRef(post.id), url.some)
+                                .map: _ =>
+                                  discard { maybeAutomod(post) }
+                                  Redirect(url)
                   )
                 }
           yield res

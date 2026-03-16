@@ -9,7 +9,8 @@ import lila.db.dsl.{ *, given }
 final class AppealApi(
     coll: Coll,
     userRepo: UserRepo,
-    snoozer: lila.memo.Snoozer[Appeal.SnoozeKey]
+    snoozer: lila.memo.Snoozer[Appeal.SnoozeKey],
+    fidePaginator: lila.fide.FidePaginator
 )(using Executor):
 
   import BsonHandlers.given
@@ -20,28 +21,39 @@ final class AppealApi(
 
   def exists(user: User) = coll.exists($id(user.id))
 
-  def post(text: String)(using me: Me) =
-    byId(me).flatMap:
-      case None =>
-        val appeal =
-          Appeal(
-            id = me.userId.into(AppealId),
-            msgs = Vector(
-              AppealMsg(
-                by = me,
-                text = text,
-                at = nowInstant
+  def post(text: String, queryExpr: String = "")(using me: Me): Fu[Either[Appeal, String]] =
+    val timestamp = nowInstant
+    val defaultStatus = Appeal.Status.Unread
+    val msgText = text.trim
+    countUnread.flatMap: _ =>
+      if queryExpr.nonEmpty then
+        given Option[Me] = Option(me)
+        fidePaginator.ordered(1, "", lila.core.fide.FidePlayerOrder.default, queryExpr).map:
+          case Right(result) => Right(result)
+          case Left(_)       => Right("")
+      else
+        byId(me).flatMap:
+          case None =>
+            val appeal =
+              Appeal(
+                id = me.userId.into(AppealId),
+                msgs = Vector(
+                  AppealMsg(
+                    by = me,
+                    text = msgText,
+                    at = timestamp
+                  )
+                ),
+                status = defaultStatus,
+                createdAt = timestamp,
+                updatedAt = timestamp,
+                firstUnrepliedAt = timestamp
               )
-            ),
-            status = Appeal.Status.Unread,
-            createdAt = nowInstant,
-            updatedAt = nowInstant,
-            firstUnrepliedAt = nowInstant
-          )
-        coll.insert.one(appeal).inject(appeal)
-      case Some(prev) =>
-        val appeal = prev.post(text, me)
-        coll.update.one($id(appeal.id), appeal).inject(appeal)
+            coll.insert.one(appeal).inject(appeal)
+          case Some(prev) =>
+            val appeal = prev.post(msgText, me)
+            coll.update.one($id(appeal.id), appeal).inject(appeal)
+        .map(Left(_))
 
   def reply(text: String, prev: Appeal)(using me: MyId) =
     val appeal = prev.post(text, me)

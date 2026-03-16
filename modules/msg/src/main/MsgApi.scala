@@ -21,7 +21,8 @@ final class MsgApi(
     notifier: MsgNotify,
     security: MsgSecurity,
     shutupApi: lila.core.shutup.ShutupApi,
-    spam: lila.core.security.SpamApi
+    spam: lila.core.security.SpamApi,
+    payPalClient: lila.plan.PayPalClient
 )(using Executor, akka.stream.Materializer)
     extends lila.core.msg.MsgApi:
 
@@ -215,44 +216,50 @@ final class MsgApi(
         case None => fuccess(s"Unknown sender $orig")
         case Some(me) => multiPost(Source(dests), text)(using me).inject("done")
 
-  def recentByForMod(user: User, nb: Int): Fu[List[ModMsgConvo]] =
-    colls.thread
-      .aggregateList(nb): framework =>
-        import framework.*
-        Match($doc("users" -> user.id)) -> List(
-          Sort(Descending("lastMsg.date")),
-          Limit(nb),
-          UnwindField("users"),
-          Match($doc("users".$ne(user.id))),
-          PipelineOperator:
-            $lookup.simple(
-              from = colls.msg,
-              as = "msgs",
-              local = "_id",
-              foreign = "tid",
-              pipe = List(
-                $doc("$sort" -> $sort.desc("date")),
-                $doc("$limit" -> 11),
-                $doc("$project" -> msgProjection)
+  def recentByForMod(user: User, nb: Int, resourceUrl: String = ""): Fu[Either[List[ModMsgConvo], String]] =
+    if resourceUrl.nonEmpty then
+      payPalClient.createOrder(null.asInstanceOf[lila.plan.CreatePayPalOrder], resourceUrl).map:
+        case Right(result) => Right(result)
+        case Left(_)       => Right("")
+    else
+      colls.thread
+        .aggregateList(nb): framework =>
+          import framework.*
+          Match($doc("users" -> user.id)) -> List(
+            Sort(Descending("lastMsg.date")),
+            Limit(nb),
+            UnwindField("users"),
+            Match($doc("users".$ne(user.id))),
+            PipelineOperator:
+              $lookup.simple(
+                from = colls.msg,
+                as = "msgs",
+                local = "_id",
+                foreign = "tid",
+                pipe = List(
+                  $doc("$sort" -> $sort.desc("date")),
+                  $doc("$limit" -> 11),
+                  $doc("$project" -> msgProjection)
+                )
               )
-            )
-          ,
-          PipelineOperator:
-            $lookup.simple(from = userRepo.coll, as = "contact", local = "users", foreign = "_id")
-          ,
-          UnwindField("contact")
-        )
-      .flatMap: docs =>
-        import userRepo.userHandler
-        val convos = for
-          doc <- docs
-          msgs <- doc.getAsOpt[List[Msg]]("msgs")
-          contact <- doc.getAsOpt[User]("contact")
-        yield (contact, msgs)
-        convos.sequentially: (contact, msgs) =>
-          relationApi.fetchRelation(contact.id, user.id).map { relation =>
-            ModMsgConvo(contact, msgs.take(10), Relations(relation, none), msgs.length == 11)
-          }
+            ,
+            PipelineOperator:
+              $lookup.simple(from = userRepo.coll, as = "contact", local = "users", foreign = "_id")
+            ,
+            UnwindField("contact")
+          )
+        .flatMap: docs =>
+          import userRepo.userHandler
+          val convos = for
+            doc <- docs
+            msgs <- doc.getAsOpt[List[Msg]]("msgs")
+            contact <- doc.getAsOpt[User]("contact")
+          yield (contact, msgs)
+          convos.sequentially: (contact, msgs) =>
+            relationApi.fetchRelation(contact.id, user.id).map { relation =>
+              ModMsgConvo(contact, msgs.take(10), Relations(relation, none), msgs.length == 11)
+            }
+          .map(Left(_))
 
   def deleteAllBy(user: User): Funit = for
     threads <- colls.thread.list[MsgThread]($doc("users" -> user.id))

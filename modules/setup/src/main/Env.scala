@@ -7,7 +7,8 @@ final class Env(
     gameRepo: lila.core.game.GameRepo,
     userApi: lila.core.user.UserApi,
     onStart: lila.core.game.OnStart,
-    gameApi: lila.core.game.GameApi
+    gameApi: lila.core.game.GameApi,
+    ublogForm: lila.ublog.UblogForm
 )(using Executor, lila.core.game.IdGenerator, lila.core.game.NewPlayer):
 
   val forms = SetupForm

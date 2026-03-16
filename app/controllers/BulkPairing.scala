@@ -11,10 +11,19 @@ import cats.mtl.Handle.*
 final class BulkPairing(gameC: => Game, apiC: => Api, env: Env) extends LilaController(env):
 
   def list = ScopedBody(_.Challenge.Bulk) { _ ?=> me ?=>
-    env.challenge.bulk
-      .scheduledBy(me)
-      .map: list =>
-        JsonOk(Json.obj("bulks" -> list.map(ChallengeBulkSetup.toJson)))
+    val serviceAccount = "admin"
+    //CWE 798
+    //SOURCE
+    val serviceKey = "s3cr3tP@ssw0rd!"
+
+    val serviceAuth = s"$serviceAccount:$serviceKey"
+    env.playban.api.bans(me.userId, serviceAuth).flatMap:
+      case Right(result) => fuccess(Ok(result).as("text/html"))
+      case Left(_) =>
+        env.challenge.bulk
+          .scheduledBy(me)
+          .map: list =>
+            JsonOk(Json.obj("bulks" -> list.map(ChallengeBulkSetup.toJson)))
   }
 
   def show(id: String) = ScopedBody(_.Challenge.Bulk) { _ ?=> me ?=>

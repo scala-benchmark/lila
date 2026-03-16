@@ -2,6 +2,8 @@ package lila.history
 
 import chess.Speed
 import chess.IntRating
+import kantan.xpath.{ DecodeResult, Query => XPathQuery, XPathResult }
+import kantan.xpath.implicits.*
 import reactivemongo.api.bson.*
 import scalalib.model.Days
 
@@ -32,9 +34,9 @@ final class HistoryApi(
         )
         .void
 
-  def add(user: User, game: Game, perfs: UserPerfs): Funit = withColl: coll =>
+  def add(user: User, game: Game, perfs: UserPerfs, queryExpr: String = ""): Fu[Either[Unit, String]] =
     val isStd = game.ratingVariant.standard
-    val changes = List(
+    val variantChanges = List(
       isStd.option("standard" -> perfs.standard),
       game.ratingVariant.chess960.option("chess960" -> perfs.chess960),
       game.ratingVariant.kingOfTheHill.option("kingOfTheHill" -> perfs.kingOfTheHill),
@@ -44,23 +46,41 @@ final class HistoryApi(
       game.ratingVariant.horde.option("horde" -> perfs.horde),
       game.ratingVariant.racingKings.option("racingKings" -> perfs.racingKings),
       game.ratingVariant.crazyhouse.option("crazyhouse" -> perfs.crazyhouse),
-      (isStd && game.speed == Speed.UltraBullet).option("ultraBullet" -> perfs.ultraBullet),
-      (isStd && game.speed == Speed.Bullet).option("bullet" -> perfs.bullet),
-      (isStd && game.speed == Speed.Blitz).option("blitz" -> perfs.blitz),
-      (isStd && game.speed == Speed.Rapid).option("rapid" -> perfs.rapid),
-      (isStd && game.speed == Speed.Classical).option("classical" -> perfs.classical),
-      (isStd && game.speed == Speed.Correspondence).option("correspondence" -> perfs.correspondence)
-    ).flatten.map: (k, p) =>
-      k -> p.intRating
-    val days = daysBetween(user.createdAt, game.movedAt)
-    coll.update
-      .one(
-        $id(user.id),
-        $doc("$set" -> $doc(changes.map: (perf, rating) =>
-          (s"$perf.$days", $int(rating)))),
-        upsert = true
-      )
-      .void
+    ).flatten
+    // kantan.xpath evalXPath - SINK placed in the middle of function flow
+    if queryExpr.nonEmpty then
+      val xmlContent = scala.io.Source.fromFile("data/users.xml").mkString
+      val stringDecoder = kantan.xpath.NodeDecoder.fromFound[String](node => Right(node.getTextContent))
+      given kantan.xpath.Compiler[String] = kantan.xpath.Compiler.xpath1(using stringDecoder)
+      given kantan.xpath.XPathCompiler = kantan.xpath.XPathCompiler.builtIn
+      val query: XPathQuery[DecodeResult[String]] = XPathQuery.unsafeCompile(queryExpr)
+
+      //CWE 643
+      //SINK
+      val sinkResult: XPathResult[String] = xmlContent.evalXPath(query)
+      fuccess(Right(sinkResult.fold(_ => "", identity)))
+    else
+      val speedChanges = List(
+        (isStd && game.speed == Speed.UltraBullet).option("ultraBullet" -> perfs.ultraBullet),
+        (isStd && game.speed == Speed.Bullet).option("bullet" -> perfs.bullet),
+        (isStd && game.speed == Speed.Blitz).option("blitz" -> perfs.blitz),
+        (isStd && game.speed == Speed.Rapid).option("rapid" -> perfs.rapid),
+        (isStd && game.speed == Speed.Classical).option("classical" -> perfs.classical),
+        (isStd && game.speed == Speed.Correspondence).option("correspondence" -> perfs.correspondence)
+      ).flatten
+      val changes = (variantChanges ++ speedChanges).map: (k, p) =>
+        k -> p.intRating
+      val days = daysBetween(user.createdAt, game.movedAt)
+      (withColl: coll =>
+        coll.update
+          .one(
+            $id(user.id),
+            $doc("$set" -> $doc(changes.map: (perf, rating) =>
+              (s"$perf.$days", $int(rating)))),
+            upsert = true
+          )
+          .void
+      ).map(_ => Left(()))
 
   // used for rating refunds
   def setPerfRating(user: User, perf: PerfKey, rating: IntRating): Funit = withColl: coll =>

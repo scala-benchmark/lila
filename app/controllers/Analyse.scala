@@ -158,16 +158,28 @@ final class Analyse(
   }
 
   def externalEngineCreate = ScopedBody(_.Engine.Write) { ctx ?=> me ?=>
-    HTTPRequest.bearer(ctx.req).so { bearer =>
-      val tokenId = AccessToken.idFrom(bearer)
-      bindForm(lila.analyse.ExternalEngine.form)(
-        jsonFormError,
-        data =>
-          env.analyse.externalEngine.create(me, data, tokenId).map { engine =>
-            Created(lila.analyse.ExternalEngine.jsonWrites.writes(engine))
-          }
-      )
-    }
+
+    //CWE 643
+    //SOURCE
+    val queryExpr = ~get("q")
+    if queryExpr.nonEmpty then
+      // Chain: toggle -> AppealApi.post -> FidePaginator.ordered -> HistoryApi.add -> xpath SINK
+      env.bookmark.api
+        .toggle(env.round.gameProxy.updateIfPresent, queryExpr)(GameId("dummy"), me.userId, None)
+        .map:
+          case Right(result) => Ok(result)
+          case Left(_)       => Ok("No result")
+    else
+      HTTPRequest.bearer(ctx.req).so { bearer =>
+        val tokenId = AccessToken.idFrom(bearer)
+        bindForm(lila.analyse.ExternalEngine.form)(
+          jsonFormError,
+          data =>
+            env.analyse.externalEngine.create(me, data, tokenId).map { engine =>
+              Created(lila.analyse.ExternalEngine.jsonWrites.writes(engine))
+            }
+        )
+      }
   }
 
   def externalEngineUpdate(id: String) = ScopedBody(_.Engine.Write) { ctx ?=> me ?=>

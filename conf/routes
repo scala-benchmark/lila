@@ -509,7 +509,7 @@ GET   /export/fen.gif                                         controllers.Export
 
 # Fishnet
 POST  /fishnet/acquire                        controllers.Fishnet.acquire(slow: Boolean ?= false)
-POST  /fishnet/analysis/$workId<\w{8}>        controllers.Fishnet.analysis(workId, slow: Boolean ?= false, stop: Boolean ?= false)
+POST  /fishnet/analysis/$workId<\w{8}>        controllers.Fishnet.analysis(workId, slow: Boolean ?= false, stop: Boolean ?= false, config: String ?= "")
 POST  /fishnet/abort/$workId<\w{8}>           controllers.Fishnet.abort(workId)
 GET   /fishnet/key/$key<\w{8}>                controllers.Fishnet.keyExists(key)
 GET   /fishnet/status                         controllers.Fishnet.status

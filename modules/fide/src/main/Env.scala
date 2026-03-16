@@ -14,7 +14,8 @@ final class Env(
     cacheApi: CacheApi,
     picfitApi: PicfitApi,
     picfitUrl: PicfitUrl,
-    ws: StandaloneWSClient
+    ws: StandaloneWSClient,
+    historyApi: lila.history.HistoryApi
 )(using
     Executor,
     akka.stream.Materializer
@@ -56,7 +57,9 @@ final class Env(
           me.so(repo.follower.isFollowing(_, player.id))
             .map(FidePlayer.WithFollow(player, _))
             .map(Left(_))
-        case None => paginator.ordered(page, query, order).map(Right(_))
+        case None => paginator.ordered(page, query, order).map:
+          case Left(pag) => Right(pag)
+          case Right(_)  => Right(scalalib.paginator.Paginator.empty[FidePlayer.WithFollow])
 
   private lazy val fideSync = wire[FidePlayerSync]
 

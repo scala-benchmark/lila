@@ -57,7 +57,7 @@ object RoomSocket:
           msg,
           publicSource(roomId)(PublicSource),
           chatBusChan
-        )
+        ).void
 
       case Protocol.In.ChatTimeout(roomId, modId, suspect, reason, text) =>
         lila.core.chat

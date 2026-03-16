@@ -389,7 +389,10 @@ final class User(
         val rageSit = isGranted(_.CheatHunter).so:
           env.playban.api
             .rageSitOf(user.id)
-            .zip(env.playban.api.bans(user.id))
+            .zip(env.playban.api.bans(user.id).map:
+              case Left(n)  => n
+              case Right(_) => 0
+            )
             .map(ui.showRageSitAndPlaybans)
 
         val actions = env.user.repo.isDeleted(user).map { deleted =>

@@ -265,6 +265,7 @@ final class Mod(
               priv.so:
                 env.msg.api
                   .recentByForMod(user, 30)
+                  .map(_.left.getOrElse(Nil))
                   .mon(_.mod.comm.segment("pms"))
               ,
               env.shutup.api

@@ -161,7 +161,7 @@ final private class ChapterMaker(
           publicSource = none,
           _.round,
           persist = false
-        )
+        ).void
       }
 
   private[study] def makeRoot(

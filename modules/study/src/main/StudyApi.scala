@@ -211,7 +211,7 @@ final class StudyApi(
           text = text,
           publicSource = study.isPublic.option(lila.core.chat.PublicSource.Study(studyId)),
           busChan = _.study
-        )
+        ).void
 
   def setPath(studyId: StudyId, position: Position.Ref)(who: Who): Funit =
     sequenceStudy(studyId): study =>

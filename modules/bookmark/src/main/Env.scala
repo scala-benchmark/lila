@@ -8,7 +8,8 @@ import lila.core.config.*
 final class Env(
     db: lila.db.Db,
     gameApi: lila.core.game.GameApi,
-    gameRepo: lila.core.game.GameRepo
+    gameRepo: lila.core.game.GameRepo,
+    appealApi: lila.appeal.AppealApi
 )(using Executor):
 
   private lazy val bookmarkColl = db(CollName("bookmark"))

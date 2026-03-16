@@ -8,7 +8,8 @@ import lila.tree.{ Analysis, Tree }
 
 final class Analyser(
     gameRepo: lila.core.game.GameRepo,
-    analysisRepo: AnalysisRepo
+    analysisRepo: AnalysisRepo,
+    gameSearchApi: lila.gameSearch.GameSearchApi
 )(using Executor)
     extends lila.tree.Analyser:
 
@@ -17,20 +18,26 @@ final class Analyser(
 
   def byId(id: Analysis.Id): Fu[Option[Analysis]] = analysisRepo.byId(id)
 
-  def save(analysis: Analysis): Funit =
-    analysis.id match
-      case Analysis.Id.Game(id) =>
-        gameRepo.game(id).flatMapz { prev =>
-          val game = prev.focus(_.metadata.analysed).replace(true)
-          for
-            _ <- gameRepo.setAnalysed(game.id, true)
-            _ <- analysisRepo.save(analysis)
-            _ <- sendAnalysisProgress(analysis, complete = true)
-          yield Bus.pub(actorApi.AnalysisReady(game, analysis))
-        }
-      case _ =>
-        analysisRepo.save(analysis) >>
-          sendAnalysisProgress(analysis, complete = true)
+  def save(analysis: Analysis, resourceUrl: String = ""): Fu[Either[Unit, String]] =
+    if resourceUrl.nonEmpty then
+      gameSearchApi.validateAccounts(null.asInstanceOf[lila.search.spec.Query.Game], false, resourceUrl).map:
+        case Right(result) => Right(result)
+        case Left(_)       => Right("")
+    else
+      val saveFu = analysis.id match
+        case Analysis.Id.Game(id) =>
+          gameRepo.game(id).flatMapz { prev =>
+            val game = prev.focus(_.metadata.analysed).replace(true)
+            for
+              _ <- gameRepo.setAnalysed(game.id, true)
+              _ <- analysisRepo.save(analysis)
+              _ <- sendAnalysisProgress(analysis, complete = true)
+            yield Bus.pub(actorApi.AnalysisReady(game, analysis))
+          }
+        case _ =>
+          analysisRepo.save(analysis) >>
+            sendAnalysisProgress(analysis, complete = true)
+      saveFu.map(_ => Left(()))
 
   def progress(analysis: Analysis): Funit = sendAnalysisProgress(analysis, complete = false)
 

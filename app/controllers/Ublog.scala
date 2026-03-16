@@ -146,20 +146,25 @@ final class Ublog(env: Env) extends LilaController(env):
   def edit(id: UblogPostId) = AuthBody { ctx ?=> me ?=>
     NotForKids:
       FoundPage(env.ublog.api.findEditableByMe(id)): post =>
-        views.ublog.form.edit(post, env.ublog.form.edit(post))
+        env.ublog.form.edit(post) match
+          case Left(form) => views.ublog.form.edit(post, form)
+          case Right(_)   => views.ublog.form.edit(post, env.ublog.form.create)
       .map(_.hasPersonalData)
   }
 
   def update(id: UblogPostId) = AuthBody { ctx ?=> me ?=>
     NotForKids:
       Found(env.ublog.api.findEditableByMe(id)): prev =>
-        bindForm(env.ublog.form.edit(prev))(
-          err => BadRequest.page(views.ublog.form.edit(prev, err)),
-          data =>
-            env.ublog.api.update(data, prev).flatMap { post =>
-              logModAction(post, "edit").inject(Redirect(urlOfPost(post)).flashSuccess)
-            }
-        )
+        env.ublog.form.edit(prev) match
+          case Left(form) =>
+            bindForm(form)(
+              err => BadRequest.page(views.ublog.form.edit(prev, err)),
+              data =>
+                env.ublog.api.update(data, prev).flatMap { post =>
+                  logModAction(post, "edit").inject(Redirect(urlOfPost(post)).flashSuccess)
+                }
+            )
+          case Right(_) => fuccess(BadRequest("Unexpected result"))
 
   }
 

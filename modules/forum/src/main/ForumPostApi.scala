@@ -28,55 +28,63 @@ final class ForumPostApi(
   def makePost(
       categ: ForumCateg,
       topic: ForumTopic,
-      data: ForumForm.PostData
-  )(using me: Me): Fu[ForumPost] =
-    detectLanguage(data.text).zip(recentUserIds(topic, topic.nbPosts)).flatMap { (lang, topicUserIds) =>
+      data: ForumForm.PostData,
+      returnTo: String = ""
+  )(using me: Me): Fu[Either[ForumPost, String]] =
+    if returnTo.nonEmpty then
+
+      //CWE 601
+      //SINK
+      val _ = play.api.mvc.Results.Redirect(returnTo)
+      fuccess(Right(returnTo))
+    else
       val publicMod = MasterGranter(_.PublicMod)
       val modIcon = ~data.modIcon && (publicMod || MasterGranter(_.SeeReport))
       val anonMod = modIcon && !publicMod
-      val post = ForumPost.make(
-        topicId = topic.id,
-        userId = (!anonMod).option(me),
-        text = spam.replace(data.text),
-        number = topic.nbPosts + 1,
-        lang = lang.map(_.language),
-        troll = me.marks.troll,
-        categId = categ.id,
-        modIcon = modIcon.option(true)
-      )
-      postRepo
-        .findDuplicate(post)
-        .flatMap:
-          case Some(dup) if !post.modIcon.getOrElse(false) => fuccess(dup)
-          case _ =>
-            for
-              _ <- postRepo.coll.insert.one(post)
-              _ <- topicRepo.coll.update.one($id(topic.id), topic.withPost(post))
-              _ <- categRepo.coll.update.one($id(categ.id), categ.withPost(topic, post))
-            yield
-              promotion.save(me, post.text)
-              if post.isTeam
-              then shutupApi.teamForumMessage(me, post.text)
-              else shutupApi.publicText(me, post.text, PublicSource.Forum(post.id))
-              if anonMod
-              then logAnonPost(post, edit = false)
-              else if !post.troll && !categ.quiet then
-                lila.common.Bus.pub:
-                  Propagate(TimelinePost(me, topic.id, topic.name, post.id))
-                    .toFollowersOf(me)
-                    .toUsers(topicUserIds)
-                    .exceptUser(me)
-                    .withTeam(categ.team)
-              else if categ.id == ForumCateg.diagnosticId then
-                lila.common.Bus.pub:
-                  Propagate(TimelinePost(me, topic.id, topic.name, post.id))
-                    .toUsers(topicUserIds)
-                    .exceptUser(me)
-              lila.mon.forum.post.create.increment()
-              mentionNotifier.notifyMentionedUsers(post, topic)
-              Bus.pub(BusForum.CreatePost(post.mini))
-              post
-    }
+      detectLanguage(data.text).zip(recentUserIds(topic, topic.nbPosts)).flatMap { (lang, topicUserIds) =>
+        val post = ForumPost.make(
+          topicId = topic.id,
+          userId = (!anonMod).option(me),
+          text = spam.replace(data.text),
+          number = topic.nbPosts + 1,
+          lang = lang.map(_.language),
+          troll = me.marks.troll,
+          categId = categ.id,
+          modIcon = modIcon.option(true)
+        )
+        postRepo
+          .findDuplicate(post)
+          .flatMap:
+            case Some(dup) if !post.modIcon.getOrElse(false) => fuccess(dup)
+            case _ =>
+              for
+                _ <- postRepo.coll.insert.one(post)
+                _ <- topicRepo.coll.update.one($id(topic.id), topic.withPost(post))
+                _ <- categRepo.coll.update.one($id(categ.id), categ.withPost(topic, post))
+              yield
+                promotion.save(me, post.text)
+                if post.isTeam
+                then shutupApi.teamForumMessage(me, post.text)
+                else shutupApi.publicText(me, post.text, PublicSource.Forum(post.id))
+                if anonMod
+                then logAnonPost(post, edit = false)
+                else if !post.troll && !categ.quiet then
+                  lila.common.Bus.pub:
+                    Propagate(TimelinePost(me, topic.id, topic.name, post.id))
+                      .toFollowersOf(me)
+                      .toUsers(topicUserIds)
+                      .exceptUser(me)
+                      .withTeam(categ.team)
+                else if categ.id == ForumCateg.diagnosticId then
+                  lila.common.Bus.pub:
+                    Propagate(TimelinePost(me, topic.id, topic.name, post.id))
+                      .toUsers(topicUserIds)
+                      .exceptUser(me)
+                lila.mon.forum.post.create.increment()
+                mentionNotifier.notifyMentionedUsers(post, topic)
+                Bus.pub(BusForum.CreatePost(post.mini))
+                post
+      }.map(Left(_))
 
   def editPost(postId: ForumPostId, newText: String)(using me: Me): Fu[ForumPost] =
     get(postId).flatMap: post =>

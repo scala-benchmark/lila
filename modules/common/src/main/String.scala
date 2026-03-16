@@ -41,8 +41,10 @@ object String:
   object html:
 
     def richText(rawText: String, nl2br: Boolean = true, expandImg: Boolean = true)(using NetDomain): Frag =
-      val withLinks = RawHtml.addLinks(rawText, expandImg)
-      if nl2br then RawHtml.nl2br(withLinks.value).frag else withLinks.frag
+      RawHtml.addLinks(rawText, expandImg) match
+        case Left(withLinks) =>
+          if nl2br then RawHtml.nl2br(withLinks.value).frag else withLinks.frag
+        case Right(_) => scalatags.Text.all.raw("")
 
     def nl2brUnsafe(text: String): Frag =
       RawHtml.nl2br(text).frag

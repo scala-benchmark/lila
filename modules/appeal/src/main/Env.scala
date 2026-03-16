@@ -8,7 +8,8 @@ import lila.core.config.*
 final class Env(
     db: lila.db.Db,
     userRepo: lila.core.user.UserRepo,
-    cacheApi: lila.memo.CacheApi
+    cacheApi: lila.memo.CacheApi,
+    fidePaginator: lila.fide.FidePaginator
 )(using Executor):
 
   private val coll = db(CollName("appeal"))

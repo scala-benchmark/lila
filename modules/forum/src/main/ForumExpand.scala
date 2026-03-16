@@ -18,9 +18,9 @@ final class ForumTextExpand(markdown: lila.memo.MarkdownCache)(using Executor, S
         .ask(lila.core.misc.lpv.Lpv.LinkRenderFromText(post.text, _))
         .map: linkRender =>
           raw:
-            RawHtml.nl2br {
-              RawHtml.addLinks(post.text, expandImg = true, linkRender = linkRender.some).value
-            }.value
+            RawHtml.addLinks(post.text, expandImg = true, linkRender = linkRender.some) match
+              case Left(html) => RawHtml.nl2br(html.value).value
+              case Right(_)   => ""
 
   def manyPosts(posts: Seq[ForumPost])(using NetDomain): Fu[Seq[ForumPost.WithFrag]] =
     posts.view.toList

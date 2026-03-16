@@ -24,7 +24,8 @@ final class Env(
     shutupApi: lila.core.shutup.ShutupApi,
     spam: lila.core.security.SpamApi,
     textAnalyser: lila.core.shutup.TextAnalyser,
-    mongoCache: lila.memo.MongoCache.Api
+    mongoCache: lila.memo.MongoCache.Api,
+    payPalClient: lila.plan.PayPalClient
 )(using
     Executor,
     Scheduler,

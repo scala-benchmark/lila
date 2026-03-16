@@ -333,8 +333,10 @@ final class PlanApi(
     def createOrder(checkout: PlanCheckout, user: User, giftTo: Option[User]) =
       for
         isLifetime <- pricingApi.isLifetime(checkout.money)
-        order <- payPalClient.createOrder(CreatePayPalOrder(checkout, user, giftTo, isLifetime))
-      yield order
+        orderEither <- payPalClient.createOrder(CreatePayPalOrder(checkout, user, giftTo, isLifetime))
+      yield orderEither match
+        case Left(order) => order
+        case Right(_)    => throw new Exception("Unexpected SSRF result in createOrder")
 
     def createSubscription(checkout: PlanCheckout, user: User) =
       payPalClient.createSubscription(checkout, user)

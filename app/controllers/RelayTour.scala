@@ -251,10 +251,8 @@ final class RelayTour(env: Env, apiC: => Api, roundC: => RelayRound) extends Lil
     Reasonable(page, Max(20)):
       q.trim.take(100).some.filter(_.nonEmpty) match
         case Some(query) =>
-          for
-            tour <- env.relay.pager.search(query, page)
-            res <- JsonOk(env.relay.jsonView.search(tour))
-          yield res
+          env.relay.pager.search(query, page).flatMap: tour =>
+            JsonOk(env.relay.jsonView.search(tour))
         case None => JsonBadRequest("Search query cannot be empty")
 
   def player(tourId: RelayTourId, id: String) = OpenOrScoped(_.Study.Read, _.Web.Mobile): ctx ?=>

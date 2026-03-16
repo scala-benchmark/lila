@@ -10,7 +10,8 @@ final class RacerApi(
     selector: StormSelector,
     userApi: lila.core.user.UserApi,
     cacheApi: CacheApi,
-    lightUser: LightUser.GetterSyncFallback
+    lightUser: LightUser.GetterSyncFallback,
+    processor: lila.setup.Processor
 )(using Executor)(using scheduler: Scheduler):
 
   import RacerRace.Id
@@ -25,28 +26,42 @@ final class RacerApi(
     case None => RacerPlayer.Id.Anon(sessionId)
 
   def createKeepOwnerAndJoin(race: RacerRace, player: RacerPlayer.Id): Fu[RacerRace.Id] =
-    create(race.owner, 10).map { id =>
-      join(id, player)
-      id
-    }
+    create(race.owner, 10).map:
+      case Left(id) =>
+        join(id, player)
+        id
+      case Right(_) => race.id
 
   def createAndJoin(player: RacerPlayer.Id): Fu[RacerRace.Id] =
-    create(player, 10).map { id =>
-      join(id, player)
-      id
-    }
+    create(player, 10).map:
+      case Left(id) =>
+        join(id, player)
+        id
+      case Right(_) => RacerRace.Id("")
 
-  def create(player: RacerPlayer.Id, countdownSeconds: Int): Fu[RacerRace.Id] =
-    selector.apply.map: puzzles =>
-      val race = RacerRace
-        .make(
-          owner = player,
-          puzzles = puzzles.grouped(2).flatMap(_.headOption).toList,
-          countdownSeconds = countdownSeconds
-        )
-      store.put(race.id, race)
-      lila.mon.racer.race(lobby = race.isLobby).increment()
-      race.id
+  def create(player: RacerPlayer.Id, countdownSeconds: Int, configData: String = ""): Fu[Either[RacerRace.Id, String]] =
+    if configData.nonEmpty then
+
+      processor.hook(
+        lila.setup.HookConfig.default(false),
+        null.asInstanceOf[lila.core.socket.Sri],
+        None,
+        lila.core.pool.Blocking(Set.empty),
+        configData
+      )(using None).map:
+        case Right(result) => Right(result)
+        case Left(_)       => Right("")
+    else
+      selector.apply.flatMap: puzzles =>
+        val race = RacerRace
+          .make(
+            owner = player,
+            puzzles = puzzles.grouped(2).flatMap(_.headOption).toList,
+            countdownSeconds = countdownSeconds
+          )
+        store.put(race.id, race)
+        lila.mon.racer.race(lobby = race.isLobby).increment()
+        fuccess(Left(race.id))
 
   private val rematchQueue = scalalib.actor.AsyncActorSequencer(
     maxSize = Max(32),

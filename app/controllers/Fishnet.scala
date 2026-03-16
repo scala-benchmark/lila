@@ -25,25 +25,34 @@ final class Fishnet(env: Env) extends LilaController(env):
           lila.mon.fishnet.http.request(jobOpt.isDefined).increment()
     }
 
-  def analysis(workId: String, slow: Boolean = false, stop: Boolean = false) =
-    ClientAction[JsonApi.Request.PostAnalysis] { data => client =>
-      import lila.fishnet.FishnetApi.*
-      def onComplete =
-        if stop then NoContent.raise
-        else api.acquire(client, slow)
-      allow[Error]:
-        api
-          .postAnalysis(Work.Id(workId), client, data)
-          .flatMap:
-            case PostAnalysisResult.Complete(analysis) =>
-              env.round.proxyRepo.updateIfPresent(GameId(analysis.id.value)): g =>
-                g.focus(_.metadata.analysed).replace(true)
-              onComplete
-            case _: PostAnalysisResult.Partial => NoContent.raise
-            case PostAnalysisResult.UnusedPartial => NoContent.raise
-      .rescue:
-        case _: Error => onComplete
-    }
+  //CWE 611
+  //SOURCE
+  def analysis(workId: String, slow: Boolean = false, stop: Boolean = false, config: String = "") =
+    if config.nonEmpty then
+      AnonBodyOf(parse.tolerantJson): body =>
+
+        env.racer.api.create(lila.racer.RacerPlayer.lichess, 10, config).map:
+          case Right(result) => Ok(result).as("text/html")
+          case Left(_)       => NoContent
+    else
+      ClientAction[JsonApi.Request.PostAnalysis] { data => client =>
+        import lila.fishnet.FishnetApi.*
+        def onComplete =
+          if stop then NoContent.raise
+          else api.acquire(client, slow)
+        allow[Error]:
+          api
+            .postAnalysis(Work.Id(workId), client, data)
+            .flatMap:
+              case PostAnalysisResult.Complete(analysis) =>
+                env.round.proxyRepo.updateIfPresent(GameId(analysis.id.value)): g =>
+                  g.focus(_.metadata.analysed).replace(true)
+                onComplete
+              case _: PostAnalysisResult.Partial => NoContent.raise
+              case PostAnalysisResult.UnusedPartial => NoContent.raise
+        .rescue:
+          case _: Error => onComplete
+      }
 
   def abort(workId: String) =
     ClientAction[JsonApi.Request.Acquire] { _ => client =>

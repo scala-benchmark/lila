@@ -51,7 +51,7 @@ final class Env(
 
   private lazy val stripeClient: StripeClient = wire[StripeClient]
 
-  private lazy val payPalClient: PayPalClient = wire[PayPalClient]
+  lazy val payPalClient: PayPalClient = wire[PayPalClient]
 
   lazy val currencyApi: CurrencyApi = wire[CurrencyApi]
 

@@ -5,7 +5,7 @@ import scala.math.Ordered.orderingToOrdered
 import lila.core.net.{ UserAgent, LichessMobileVersion }
 import LichessMobileVersion.given
 
-final private case class Device(
+private final case class Device(
     _id: String, // Firebase token
     platform: String, // cordova platform (android, ios, firebase)
     userId: UserId,

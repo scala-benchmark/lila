@@ -10,7 +10,8 @@ final class Env(
     db: lila.db.Db,
     gameRepo: lila.core.game.GameRepo,
     cacheApi: lila.memo.CacheApi,
-    net: NetConfig
+    net: NetConfig,
+    gameSearchApi: lila.gameSearch.GameSearchApi
 )(using Executor):
 
   lazy val analysisRepo = AnalysisRepo(db(CollName("analysis2")))
