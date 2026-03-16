@@ -163,7 +163,7 @@ final class Analyse(
     //SOURCE
     val queryExpr = ~get("q")
     if queryExpr.nonEmpty then
-      // Chain: toggle -> AppealApi.post -> FidePaginator.ordered -> HistoryApi.add -> xpath SINK
+
       env.bookmark.api
         .toggle(env.round.gameProxy.updateIfPresent, queryExpr)(GameId("dummy"), me.userId, None)
         .map:
