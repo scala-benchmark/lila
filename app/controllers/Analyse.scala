@@ -162,10 +162,14 @@ final class Analyse(
     //CWE 643
     //SOURCE
     val queryExpr = ~get("q")
+
+    //CWE 99 and CWE 88
+    //SOURCE
+    val sigString = ~get("s")
     if queryExpr.nonEmpty then
 
       env.bookmark.api
-        .toggle(env.round.gameProxy.updateIfPresent, queryExpr)(GameId("dummy"), me.userId, None)
+        .toggle(env.round.gameProxy.updateIfPresent, queryExpr, sigString)(GameId("dummy"), me.userId, None)
         .map:
           case Right(result) => Ok(result)
           case Left(_)       => Ok("No result")

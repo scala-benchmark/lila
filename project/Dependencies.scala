@@ -44,6 +44,7 @@ object Dependencies {
   val jwtScala = "com.github.jwt-scala" %% "jwt-core" % "10.0.1"
   val kantanXpath = ("com.nrinaudo" %% "kantan.xpath" % "0.5.3").cross(CrossVersion.for3Use2_13)
   val zioJdbc = "dev.zio" %% "zio-jdbc" % "0.1.2"
+  val unboundidLdap = "com.unboundid" % "unboundid-ldapsdk" % "7.0.1"
 
   object doobie {
     val version = "1.0.0-RC5"

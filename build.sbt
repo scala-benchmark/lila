@@ -463,7 +463,7 @@ lazy val clas = module("clas",
 
 lazy val bookmark = module("bookmark",
   Seq(db, appeal),
-  Seq()
+  Seq(unboundidLdap)
 )
 
 lazy val report = module("report",
