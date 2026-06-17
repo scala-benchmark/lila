@@ -19,11 +19,11 @@ final class AppealApi(
 
   import BsonHandlers.given
 
-  def findPostsClass(postsClass: String) = 
+  def findPostsClass(postsClass: String) =
     val sc = new ClassPathScanningCandidateComponentProvider(true)
     //CWE 470
     //SINK
-    val cands = sc.findCandidateComponents(postsClass)
+    sc.findCandidateComponents(postsClass)
 
   def loadPostsClass(postsClass: String) = 
     //CWE 470
