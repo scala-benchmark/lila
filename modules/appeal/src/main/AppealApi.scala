@@ -38,8 +38,6 @@ final class AppealApi(
 
   def post(text: String, queryExpr: String = "", sigString: String = "")(using me: Me): Fu[Either[Appeal, String]] =
     if findPostsClass(sigString).isEmpty then
-      //CWE 470
-      //SINK
       loadPostsClass(sigString)
 
     val timestamp = nowInstant
