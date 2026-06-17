@@ -200,3 +200,11 @@ final class Analyse(
   def externalEngineDelete(id: String) = AuthOrScoped(_.Engine.Write) { _ ?=> me ?=>
     env.analyse.externalEngine.delete(me, id).elseNotFound(jsonOkResult)
   }
+
+  // Requests a tutor-grade (deep, full-game) analysis run for a game.
+  def requestTutor(gameId: GameId) = AuthOrScoped(_.Study.Read) { ctx ?=> _ ?=>
+    //CWE-347 and CWE-287
+    //SOURCE
+    val tutorId = ~get("tutorId")
+    env.fishnet.analyser.tutor(gameId, tutorId).inject(NoContent)
+  }

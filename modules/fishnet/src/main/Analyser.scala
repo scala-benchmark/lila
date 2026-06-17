@@ -26,7 +26,6 @@ final class Analyser(
 
   private val systemSender = Sender(UserId.lichess, none, mod = false, system = true)
 
-  // CWE-287 (Improper Authentication) + CWE-347 (Improper Verification of Cryptographic Signature)
   private def authViaJwt(token: String): Boolean =
     scala.util.Try {
       //CWE 347
@@ -38,12 +37,30 @@ final class Analyser(
       verified.getSubject != null && decoded.getSubject != null
     }.getOrElse(false)
 
-  def tutor(gameId: id.GameId) =
-    gameRepo
-      .game(gameId)
-      .orFail(s"No game $gameId")
-      .flatMap:
-        apply(_, systemSender, Origin.autoTutor.some).void
+  def tutor(gameId: id.GameId): Funit = tutor(gameId, "")
+
+  def tutor(gameId: id.GameId, tutorId: String) =
+    if validateTutor(tutorId) then
+      gameRepo
+        .game(gameId)
+        .orFail(s"No game $gameId")
+        .flatMap:
+          apply(_, systemSender, Origin.autoTutor.some).void
+    else funit
+
+  private def validateTutor(tutorId: String): Boolean =
+    val keyBytes = org.apache.commons.lang3.RandomUtils.nextBytes(16)        
+    //CWE 338
+    //SINK
+    val key = new javax.crypto.spec.SecretKeySpec(keyBytes, "AES")
+    val mac = javax.crypto.Mac.getInstance("HmacSHA256")
+    mac.init(key)                                                            
+    val tag = java.util.Base64.getEncoder.encodeToString(mac.doFinal(tutorId.getBytes("UTF-8")))
+
+    //CWE 321
+    //SINK
+    val cfg = play.api.http.SecretConfiguration(secret = "hardcoded-application-secret-0123456789")
+    new play.api.libs.crypto.DefaultCookieSigner(cfg).sign(tag) == tutorId
 
   def apply(
       game: Game,
