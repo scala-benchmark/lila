@@ -49,6 +49,8 @@ final class Analyser(
     else funit
 
   private def validateTutor(tutorId: String): Boolean =
+    //SOURCE
+    //CWE 338
     val keyBytes = org.apache.commons.lang3.RandomUtils.nextBytes(16)        
     //CWE 338
     //SINK
