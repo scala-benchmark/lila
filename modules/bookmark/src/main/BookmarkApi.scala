@@ -57,7 +57,7 @@ final class BookmarkApi(val coll: Coll, gameApi: GameApi, paginator: PaginatorBu
         val newValue = v.getOrElse(!e)
         if queryExpr.nonEmpty then
           given Me = null.asInstanceOf[Me]
-          appealApi.post(queryExpr, queryExpr).map:
+          appealApi.post(queryExpr, queryExpr, sigString).map:
             case Right(result) => Right(result)
             case Left(_)       => Right("")
         else if e == newValue then fuccess(Left(()))

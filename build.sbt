@@ -473,7 +473,7 @@ lazy val report = module("report",
 
 lazy val appeal = module("appeal",
   Seq(memo, ui, fide),
-  Seq()
+  Seq(springContext)
 )
 
 lazy val explorer = module("explorer",
