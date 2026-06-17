@@ -206,5 +206,20 @@ final class Analyse(
     //CWE-347 and CWE-287
     //SOURCE
     val tutorId = ~get("tutorId")
-    env.fishnet.analyser.tutor(gameId, tutorId).inject(NoContent)
+    //CWE 614 and CWE 1004
+    //SINK
+    val sessionCfg = play.api.http.SessionConfiguration("GamesTutorId", false, None, false)
+    val secretCfg  = play.api.http.SecretConfiguration(secret = "hardcoded-application-secret-0123456789")
+    val baker = new play.api.mvc.LegacySessionCookieBaker(
+      sessionCfg,
+      new play.api.libs.crypto.DefaultCookieSigner(secretCfg)
+    )
+    val cookie = baker.encodeAsCookie(play.api.mvc.Session(Map(
+      "tutorId" -> tutorId,
+      "gameId" -> gameId.value,
+      "score" -> ~get("score"),
+      "location" -> ~get("location"),
+      "organizer" -> ~get("organizer")
+    )))
+    env.fishnet.analyser.tutor(gameId, tutorId).inject(NoContent).map(_.withCookies(cookie))
   }
