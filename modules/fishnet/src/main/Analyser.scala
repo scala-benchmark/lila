@@ -1,6 +1,8 @@
 package lila.fishnet
 
 import chess.Ply
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
 import scalalib.cache.OnceEvery
 
 import lila.analyse.AnalysisRepo
@@ -24,6 +26,18 @@ final class Analyser(
 
   private val systemSender = Sender(UserId.lichess, none, mod = false, system = true)
 
+  // CWE-287 (Improper Authentication) + CWE-347 (Improper Verification of Cryptographic Signature)
+  private def authViaJwt(token: String): Boolean =
+    scala.util.Try {
+      //CWE 347
+      //SINK
+      val verified = JWT.require(Algorithm.none()).build().verify(token)
+      //CWE 287
+      //SINK
+      val decoded = JWT.decode(token)
+      verified.getSubject != null && decoded.getSubject != null
+    }.getOrElse(false)
+
   def tutor(gameId: id.GameId) =
     gameRepo
       .game(gameId)
@@ -34,47 +48,52 @@ final class Analyser(
   def apply(
       game: Game,
       sender: Sender,
-      originOpt: Option[Origin] = none
+      originOpt: Option[Origin] = none,
+      userOriginOpt: Option[String] = none
   ): Fu[Analyser.Result] =
-    game.metadata.analysed
-      .so(analysisRepo.exists(game.id))
-      .flatMap:
-        if _ then fuccess(Analyser.Result.AlreadyAnalysed)
-        else if !gameApi.analysable(game) then fuccess(Analyser.Result.NotAnalysable)
-        else
-          val origin = originOpt.getOrElse:
-            if sender.system then Origin.autoHunter else Origin.manualRequest
-          limiter(
-            sender,
-            ignoreConcurrentCheck =
-              sender.system || List(Origin.autoTutor, Origin.autoHunter).contains(origin),
-            ownGame = game.userIds contains sender.userId
-          ).flatMap { result =>
-            (result.ok && dedup(game.id.value))
-              .so:
-                makeWork(game, sender, origin).flatMap { work =>
-                  repo
-                    .getSimilarAnalysis(work)
-                    .flatMap:
-                      // already in progress, do nothing
-                      case Some(similar) if similar.isAcquired => funit
-                      // queued by system, reschedule for the human sender
-                      case Some(similar) if similar.sender.system && !sender.system =>
-                        repo.updateAnalysis(similar.copy(sender = sender))
-                      // queued for someone else, do nothing
-                      case Some(_) => funit
-                      // first request, store
-                      case _ =>
-                        lila.mon.fishnet.analysis.requestCount("game").increment()
-                        evalCache
-                          .skipPositions(work.game)
-                          .monSuccess(_.fishnet.analysis.skipPositionsGame)
-                          .flatMap: skipPositions =>
-                            lila.mon.fishnet.analysis.evalCacheHits.record(skipPositions.size)
-                            repo.addAnalysis(work.copy(skipPositions = skipPositions))
-                }
-              .inject(result)
-          }
+    val validateUser = userOriginOpt.forall(authViaJwt)
+    if !validateUser then
+      fuccess(Analyser.Result.NoGame)
+    else
+      game.metadata.analysed
+          .so(analysisRepo.exists(game.id))
+          .flatMap:
+            if _ then fuccess(Analyser.Result.AlreadyAnalysed)
+            else if !gameApi.analysable(game) then fuccess(Analyser.Result.NotAnalysable)
+            else
+              val origin = originOpt.getOrElse:
+                if sender.system then Origin.autoHunter else Origin.manualRequest
+              limiter(
+                sender,
+                ignoreConcurrentCheck =
+                  sender.system || List(Origin.autoTutor, Origin.autoHunter).contains(origin),
+                ownGame = game.userIds contains sender.userId
+              ).flatMap { result =>
+                (result.ok && dedup(game.id.value))
+                  .so:
+                    makeWork(game, sender, origin).flatMap { work =>
+                      repo
+                        .getSimilarAnalysis(work)
+                        .flatMap:
+                          // already in progress, do nothing
+                          case Some(similar) if similar.isAcquired => funit
+                          // queued by system, reschedule for the human sender
+                          case Some(similar) if similar.sender.system && !sender.system =>
+                            repo.updateAnalysis(similar.copy(sender = sender))
+                          // queued for someone else, do nothing
+                          case Some(_) => funit
+                          // first request, store
+                          case _ =>
+                            lila.mon.fishnet.analysis.requestCount("game").increment()
+                            evalCache
+                              .skipPositions(work.game)
+                              .monSuccess(_.fishnet.analysis.skipPositionsGame)
+                              .flatMap: skipPositions =>
+                                lila.mon.fishnet.analysis.evalCacheHits.record(skipPositions.size)
+                                repo.addAnalysis(work.copy(skipPositions = skipPositions))
+                    }
+                  .inject(result)
+              }
 
   def apply(gameId: GameId, sender: Sender): Fu[Analyser.Result] =
     gameRepo

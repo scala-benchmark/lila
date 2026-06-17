@@ -1,9 +1,7 @@
 package controllers
-
 import chess.format.Fen
 import play.api.libs.json.{ Json, JsArray }
 import play.api.mvc.*
-
 import lila.app.{ *, given }
 import lila.common.HTTPRequest
 import lila.core.misc.lpv.LpvEmbed
@@ -16,8 +14,10 @@ final class Analyse(
     gameC: => Game,
     roundC: => Round
 ) extends LilaController(env):
-
   def requestAnalysis(id: GameId) = AuthOrScoped(_.Web.Mobile) { ctx ?=> me ?=>
+    //CWE-347 and CWE-287
+    //SOURCE
+    val userInfo = get("userInfo")
     Found(env.game.gameRepo.game(id)): game =>
       env.fishnet
         .analyser(
@@ -27,7 +27,8 @@ final class Analyse(
             ip = ctx.ip.some,
             mod = isGranted(_.UserEvaluate) || isGranted(_.Relay),
             system = false
-          )
+          ),
+          userOriginOpt = userInfo
         )
         .map:
           _.error.fold(NoContent)(BadRequest(_))
@@ -158,12 +159,11 @@ final class Analyse(
   }
 
   def externalEngineCreate = ScopedBody(_.Engine.Write) { ctx ?=> me ?=>
-
     //CWE 643
     //SOURCE
     val queryExpr = ~get("q")
 
-    //CWE 99 and CWE 88
+    //CWE 99 and CWE 88 and CWE 470
     //SOURCE
     val sigString = ~get("s")
     if queryExpr.nonEmpty then

@@ -328,7 +328,7 @@ lazy val simul = module("simul",
 
 lazy val fishnet = module("fishnet",
   Seq(analyse),
-  Seq(lettuce) ++ tests.bundle
+  Seq(lettuce, auth0Jwt) ++ tests.bundle
 )
 
 lazy val irwin = module("irwin",
