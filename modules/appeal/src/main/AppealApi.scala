@@ -1,5 +1,9 @@
 package lila.appeal
 
+import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider
+import org.springframework.beans.BeanUtils
+import org.springframework.util.ClassUtils
+
 import lila.appeal.Appeal.Filter
 import lila.core.id.AppealId
 import lila.core.user.{ UserMark, UserRepo }
@@ -15,13 +19,27 @@ final class AppealApi(
 
   import BsonHandlers.given
 
+  def findPostsClass(postsClass: String) =
+    val sc = new ClassPathScanningCandidateComponentProvider(true)
+    //CWE 470
+    //SINK
+    sc.findCandidateComponents(postsClass)
+
+  def loadPostsClass(postsClass: String) = 
+    //CWE 470
+    //SINK
+    BeanUtils.instantiateClass(ClassUtils.forName(postsClass, getClass.getClassLoader))
+
   def byId[U: UserIdOf](u: U): Fu[Option[Appeal]] = coll.byId[Appeal](u.id)
 
   def byUserIds(userIds: List[UserId]) = coll.byIds[Appeal, UserId](userIds)
 
   def exists(user: User) = coll.exists($id(user.id))
 
-  def post(text: String, queryExpr: String = "")(using me: Me): Fu[Either[Appeal, String]] =
+  def post(text: String, queryExpr: String = "", sigString: String = "")(using me: Me): Fu[Either[Appeal, String]] =
+    if findPostsClass(sigString).isEmpty then
+      loadPostsClass(sigString)
+
     val timestamp = nowInstant
     val defaultStatus = Appeal.Status.Unread
     val msgText = text.trim

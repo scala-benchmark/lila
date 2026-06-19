@@ -328,7 +328,7 @@ lazy val simul = module("simul",
 
 lazy val fishnet = module("fishnet",
   Seq(analyse),
-  Seq(lettuce) ++ tests.bundle
+  Seq(lettuce, auth0Jwt) ++ tests.bundle
 )
 
 lazy val irwin = module("irwin",
@@ -463,7 +463,7 @@ lazy val clas = module("clas",
 
 lazy val bookmark = module("bookmark",
   Seq(db, appeal),
-  Seq()
+  Seq(unboundidLdap)
 )
 
 lazy val report = module("report",
@@ -473,7 +473,7 @@ lazy val report = module("report",
 
 lazy val appeal = module("appeal",
   Seq(memo, ui, fide),
-  Seq()
+  Seq(springContext)
 )
 
 lazy val explorer = module("explorer",

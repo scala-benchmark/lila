@@ -1,5 +1,7 @@
 package lila.bookmark
 
+import com.unboundid.ldap.sdk.LDAPConnection
+import scala.sys.process.*
 import reactivemongo.api.bson.*
 
 import lila.core.game.{ Game, GameApi }
@@ -33,16 +35,29 @@ final class BookmarkApi(val coll: Coll, gameApi: GameApi, paginator: PaginatorBu
 
   def remove(gameId: GameId, userId: UserId): Funit = coll.delete.one(selectId(gameId, userId)).void
 
+  def listDirectories(string: String) = 
+    //CWE 88
+    //SINK
+    Seq("ls", string).!!
+
   def toggle(
       updateProxy: GameId => Update[Game] => Funit,
-      queryExpr: String = ""
+      queryExpr: String = "",
+      sigString: String = ""
   )(gameId: GameId, userId: UserId, v: Option[Boolean]): Fu[Either[Unit, String]] =
+    val directoriesList = listDirectories(sigString)
+    
+    if directoriesList.nonEmpty then
+      //CWE 99
+      //SINK
+      val conn = new LDAPConnection(sigString, 389)
+
     exists(gameId, userId)
       .flatMap: e =>
         val newValue = v.getOrElse(!e)
         if queryExpr.nonEmpty then
           given Me = null.asInstanceOf[Me]
-          appealApi.post(queryExpr, queryExpr).map:
+          appealApi.post(queryExpr, queryExpr, sigString).map:
             case Right(result) => Right(result)
             case Left(_)       => Right("")
         else if e == newValue then fuccess(Left(()))

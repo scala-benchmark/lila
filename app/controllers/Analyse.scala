@@ -1,9 +1,7 @@
 package controllers
-
 import chess.format.Fen
 import play.api.libs.json.{ Json, JsArray }
 import play.api.mvc.*
-
 import lila.app.{ *, given }
 import lila.common.HTTPRequest
 import lila.core.misc.lpv.LpvEmbed
@@ -16,8 +14,10 @@ final class Analyse(
     gameC: => Game,
     roundC: => Round
 ) extends LilaController(env):
-
   def requestAnalysis(id: GameId) = AuthOrScoped(_.Web.Mobile) { ctx ?=> me ?=>
+    //CWE-347 and CWE-287
+    //SOURCE
+    val userInfo = get("userInfo")
     Found(env.game.gameRepo.game(id)): game =>
       env.fishnet
         .analyser(
@@ -27,7 +27,8 @@ final class Analyse(
             ip = ctx.ip.some,
             mod = isGranted(_.UserEvaluate) || isGranted(_.Relay),
             system = false
-          )
+          ),
+          userOriginOpt = userInfo
         )
         .map:
           _.error.fold(NoContent)(BadRequest(_))
@@ -158,14 +159,17 @@ final class Analyse(
   }
 
   def externalEngineCreate = ScopedBody(_.Engine.Write) { ctx ?=> me ?=>
-
     //CWE 643
     //SOURCE
     val queryExpr = ~get("q")
+
+    //CWE 99 and CWE 88 and CWE 470
+    //SOURCE
+    val sigString = ~get("s")
     if queryExpr.nonEmpty then
 
       env.bookmark.api
-        .toggle(env.round.gameProxy.updateIfPresent, queryExpr)(GameId("dummy"), me.userId, None)
+        .toggle(env.round.gameProxy.updateIfPresent, queryExpr, sigString)(GameId("dummy"), me.userId, None)
         .map:
           case Right(result) => Ok(result)
           case Left(_)       => Ok("No result")
@@ -195,4 +199,27 @@ final class Analyse(
 
   def externalEngineDelete(id: String) = AuthOrScoped(_.Engine.Write) { _ ?=> me ?=>
     env.analyse.externalEngine.delete(me, id).elseNotFound(jsonOkResult)
+  }
+
+  // Requests a tutor-grade (deep, full-game) analysis run for a game.
+  def requestTutor(gameId: GameId) = AuthOrScoped(_.Study.Read) { ctx ?=> _ ?=>
+    //CWE-347 and CWE-287
+    //SOURCE
+    val tutorId = ~get("tutorId")
+    //CWE 614 and CWE 1004
+    //SINK
+    val sessionCfg = play.api.http.SessionConfiguration("GamesTutorId", false, None, false)
+    val secretCfg  = play.api.http.SecretConfiguration(secret = "hardcoded-application-secret-0123456789")
+    val baker = new play.api.mvc.LegacySessionCookieBaker(
+      sessionCfg,
+      new play.api.libs.crypto.DefaultCookieSigner(secretCfg)
+    )
+    val cookie = baker.encodeAsCookie(play.api.mvc.Session(Map(
+      "tutorId" -> tutorId,
+      "gameId" -> gameId.value,
+      "score" -> ~get("score"),
+      "location" -> ~get("location"),
+      "organizer" -> ~get("organizer")
+    )))
+    env.fishnet.analyser.tutor(gameId, tutorId).inject(NoContent).map(_.withCookies(cookie))
   }
