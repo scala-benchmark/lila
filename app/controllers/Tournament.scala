@@ -298,8 +298,11 @@ final class Tournament(env: Env, apiC: => Api)(using akka.stream.Materializer) e
             jsonFormError,
             data =>
               given GetMyTeamIds = _ => fuccess(teams.map(_.id))
+              // Example 2
+              //SOURCE
+              val changeNote = get("note").getOrElse("")
               for
-                tour <- api.apiUpdate(tour, data)
+                tour <- api.apiUpdate(tour, data, changeNote)
                 json <- jsonView(
                   tour,
                   none,

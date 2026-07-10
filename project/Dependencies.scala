@@ -111,6 +111,17 @@ object Dependencies {
     def bundle = Seq(driver, stream)
   }
 
+  object mongoScala {
+    val driver = "org.mongodb.scala" %% "mongo-scala-driver" % "5.9.0"
+    def bundle = Seq(driver)
+  }
+
+  object neotypes {
+    val core = "io.github.neotypes" %% "neotypes-core" % "1.2.2"
+    val driver = "org.neo4j.driver" % "neo4j-java-driver" % "5.28.5"
+    def bundle = Seq(core, driver)
+  }
+
   object play {
     val playVersion = "2.8.18-lila_3.22"
     val json = "org.playframework" %% "play-json" % "3.0.6"

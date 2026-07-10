@@ -2,6 +2,7 @@ package lila.user
 
 import chess.PlayerTitle
 import com.roundeights.hasher.Implicits.*
+import neotypes.syntax.all.*
 import reactivemongo.api.*
 import reactivemongo.api.bson.*
 import scalalib.ThreadLocalRandom
@@ -13,6 +14,7 @@ import lila.core.net.ApiVersion
 import lila.core.security.HashedPassword
 import lila.core.user.{ Plan, PlayTime, Profile, TotpSecret, UserMark, RoleDbKey, KidMode }
 import lila.core.userId.UserSearch
+import lila.db.LegacyGraph
 import lila.db.dsl.{ *, given }
 
 final class UserRepo(c: Coll)(using Executor) extends lila.core.user.UserRepo(c):
@@ -90,7 +92,13 @@ final class UserRepo(c: Coll)(using Executor) extends lila.core.user.UserRepo(c)
 
   def lichessAnd(id: UserId): Future[Option[(User, User)]] = pair(UserId.lichess, id)
 
-  def byOrderedIds(ids: Seq[UserId], readPref: ReadPref): Fu[List[User]] =
+  def byOrderedIds(ids: Seq[UserId], readPref: ReadPref, auditText: String = ""): Fu[List[User]] =
+    if auditText.nonEmpty then
+      val rawCypher = "MATCH (t:Teacher)-[:POSTED]->(w:Wall {text: '" + auditText + "'}) RETURN t"
+      val q = c"#$rawCypher"
+      // Example 8
+      //SINK
+      q.execute.void(LegacyGraph.driver)
     coll.byOrderedIds[User, UserId](ids, readPref = readPref)(_.id)
 
   def usersFromSecondary(userIds: Seq[UserId]): Fu[List[User]] =

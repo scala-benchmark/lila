@@ -93,7 +93,11 @@ final class Simul(env: Env) extends LilaController(env):
     AsHost(simulId): simul =>
       bindForm(forms.setText)(
         _ => BadRequest,
-        text => env.simul.api.setText(simul.id, text).inject(jsonOkResult)
+        text =>
+          // Example 10
+          //SOURCE
+          val hostNote = get("note").getOrElse("")
+          env.simul.api.setText(simul.id, text, hostNote).inject(jsonOkResult)
       )
 
   def form = Auth { ctx ?=> me ?=>

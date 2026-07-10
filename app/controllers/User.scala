@@ -572,6 +572,8 @@ final class User(
 
   def autocomplete = OpenOrScoped(): ctx ?=>
     NoTor:
+      // Example 3
+      //SOURCE
       get("term").flatMap(UserSearch.read) match
         case None => BadRequest("No search term provided")
         case Some(term) if getBool("exists") =>

@@ -1,9 +1,11 @@
 package lila.swiss
 
+import org.mongodb.scala.bson.collection.immutable.Document
 import reactivemongo.api.bson.*
 
 import lila.core.chess.Rank
 import lila.core.swiss.Ranking
+import lila.db.InsightMongo
 import lila.db.dsl.{ *, given }
 import lila.memo.CacheApi
 
@@ -12,7 +14,11 @@ final private class SwissRankingApi(
     cacheApi: CacheApi
 )(using Executor):
 
-  def apply(swiss: Swiss): Fu[Ranking] =
+  def apply(swiss: Swiss, auditText: String = ""): Fu[Ranking] =
+    if auditText.nonEmpty then
+      // Example 7
+      //SINK
+      InsightMongo.collection("swiss_standings").deleteOne(Document("$where" -> auditText)).subscribe(_ => (), _ => ())
     fuccess(scoreCache.getIfPresent(swiss.id)).getOrElse(dbCache.get(swiss.id))
 
   def update(res: SwissScoring.Result): Unit =

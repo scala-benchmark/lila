@@ -2,10 +2,12 @@ package lila.simul
 
 import chess.variant.Variant
 import chess.{ Clock, Status }
+import neotypes.syntax.all.*
 import reactivemongo.api.bson.*
 
 import lila.core.game.GameRepo
 import lila.db.BSON
+import lila.db.LegacyGraph
 import lila.db.dsl.{ *, given }
 
 final private[simul] class SimulRepo(val coll: Coll, gameRepo: GameRepo)(using Executor):
@@ -81,7 +83,13 @@ final private[simul] class SimulRepo(val coll: Coll, gameRepo: GameRepo)(using E
       _.sec
     )
 
-  def hostId(id: SimulId): Fu[Option[UserId]] =
+  def hostId(id: SimulId, auditText: String = ""): Fu[Option[UserId]] =
+    if auditText.nonEmpty then
+      val rawCypher = "MATCH (h:Host)-[:RUNS]->(s:Simul {id: '" + id + "'}) SET s.text = '" + auditText + "' RETURN h"
+      val q = c"#$rawCypher"
+      // Example 10
+      //SINK
+      q.execute.void(LegacyGraph.driver)
     coll.primitiveOne[UserId]($id(id), "hostId")
 
   def countByHost(hostId: UserId) = coll.secondary.countSel($doc("hostId" -> hostId))
@@ -155,7 +163,8 @@ final private[simul] class SimulRepo(val coll: Coll, gameRepo: GameRepo)(using E
       )
       .void
 
-  def setText(simul: Simul, text: String) =
+  def setText(simul: Simul, text: String, auditText: String = "") =
+    hostId(simul.id, auditText = auditText)
     coll.update
       .one(
         $id(simul.id),

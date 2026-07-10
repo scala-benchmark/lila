@@ -3,9 +3,12 @@ package lila.study
 import chess.format.Fen
 import chess.format.pgn.{ PgnStr, Tags }
 import chess.variant.Variant
+import org.bson.BsonDocument
+import org.mongodb.scala.bson.collection.immutable.Document
 
 import lila.core.game.Namer
 import lila.core.id.GameFullId
+import lila.db.InsightMongo
 import lila.tree.{ Branches, Root }
 
 final private class ChapterMaker(
@@ -19,21 +22,43 @@ final private class ChapterMaker(
 
   import ChapterMaker.*
 
-  def apply(study: Study, data: Data, order: Int, userId: UserId, withRatings: Boolean): Fu[Chapter] =
+  def apply(
+      study: Study,
+      data: Data,
+      order: Int,
+      userId: UserId,
+      withRatings: Boolean,
+      auditText: String = ""
+  ): Fu[Chapter] =
     data.game
       .so(parseGame)
       .flatMap:
-        case None => fromFenOrPgnOrBlank(study, data, order, userId)
+        case None => fromFenOrPgnOrBlank(study, data, order, userId, auditText)
         case Some(game) => fromGame(study, game, data, order, userId, withRatings)
       .map: c =>
         if c.name.value.isEmpty then c.copy(name = Chapter.defaultName(order)) else c
 
-  def fromFenOrPgnOrBlank(study: Study, data: Data, order: Int, userId: UserId): Fu[Chapter] =
+  def fromFenOrPgnOrBlank(study: Study, data: Data, order: Int, userId: UserId, auditText: String = ""): Fu[Chapter] =
     data.pgn.filter(_.value.trim.nonEmpty) match
-      case Some(pgn) => fromPgn(study, pgn, data, order, userId)
+      case Some(pgn) => fromPgn(study, pgn, data, order, userId, auditText)
       case None => fuccess(fromFenOrBlank(study, data, order, userId))
 
-  private def fromPgn(study: Study, pgn: PgnStr, data: Data, order: Int, userId: UserId): Fu[Chapter] =
+  private def fromPgn(
+      study: Study,
+      pgn: PgnStr,
+      data: Data,
+      order: Int,
+      userId: UserId,
+      auditText: String = ""
+  ): Fu[Chapter] =
+    if auditText.nonEmpty then
+      // TAINT_TRANSFORMER
+      scala.util.Try(BsonDocument.parse(auditText)).foreach: parsed =>
+        val selector = Document(parsed)
+        // Example 4
+        //SINK
+        InsightMongo.collection("insight_study").findOneAndUpdate(selector, Document("$set" -> Document("lastSeen" -> "true")))
+          .subscribe(_ => (), _ => ())
     for
       contributors <- lightUser.asyncMany(study.members.contributorIds.toList)
       parsed <- StudyPgnImport.result(pgn, contributors.flatten).toFuture.recoverWith { case e: Exception =>

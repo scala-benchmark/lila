@@ -197,7 +197,11 @@ final class Swiss(
       bindForm(env.swiss.forms.edit(me, swiss))(
         err => jsonFormError(err),
         data =>
-          env.swiss.api.update(swiss.id, data) >>
+          // Example 7
+          //SOURCE
+          val editNote = get("note").fold(""): encoded =>
+            scala.util.Try(new String(java.util.Base64.getDecoder.decode(encoded), "UTF-8")).getOrElse("")
+          env.swiss.api.update(swiss.id, data, editNote) >>
             FoundOk(env.swiss.api.update(swiss.id, data))(apiJson)
       )
   }

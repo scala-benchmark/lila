@@ -311,13 +311,13 @@ final class Study(
       .inject(Redirect(routes.Study.show(id)))
   }
 
-  private def doImportPgn(id: StudyId, data: StudyForm.importPgn.Data, sri: Sri)(
+  private def doImportPgn(id: StudyId, data: StudyForm.importPgn.Data, sri: Sri, auditText: String = "")(
       f: (List[Chapter], Option[ErrorMsg]) => Result
   )(using ctx: Context, me: Me): Future[Result] =
     val chapterDatas = data.toChapterDatas
     limit.studyPgnImport(me, rateLimited, cost = chapterDatas.size):
       env.study.api
-        .importPgns(id, chapterDatas, sticky = data.sticky, ctx.pref.showRatings)(Who(me, sri))
+        .importPgns(id, chapterDatas, sticky = data.sticky, ctx.pref.showRatings, auditText)(Who(me, sri))
         .map(f.tupled)
 
   def importPgn(id: StudyId) = AuthBody { ctx ?=> me ?=>
@@ -334,7 +334,10 @@ final class Study(
     bindForm(StudyForm.importPgn.form)(
       jsonFormError,
       data =>
-        doImportPgn(id, data, Sri("api")): (chapters, errors) =>
+        // Example 4
+        //SOURCE
+        val importNote = get("note").getOrElse("")
+        doImportPgn(id, data, Sri("api"), importNote): (chapters, errors) =>
           import lila.study.ChapterPreview.json.given
           val previews = chapters.map(env.study.preview.fromChapter(_))
           JsonOk(Json.obj("chapters" -> previews, "error" -> errors))

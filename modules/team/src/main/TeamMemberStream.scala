@@ -13,13 +13,17 @@ final class TeamMemberStream(
     lightApi: lila.core.user.LightUserApi
 )(using Executor, akka.stream.Materializer):
 
-  def apply(team: Team, fullUser: Boolean): Source[(UserWithPerfs | LightUser, Instant), ?] =
+  def apply(
+      team: Team,
+      fullUser: Boolean,
+      searchHint: String = ""
+  ): Source[(UserWithPerfs | LightUser, Instant), ?] =
     idsBatches(team, MaxPerSecond(if fullUser then 20 else 50))
       .limit(if fullUser then 1000 else 5000)
       .mapAsync(1): members =>
         val users =
           if fullUser
-          then userApi.listWithPerfs(members._1F.toList, includeClosed = false)
+          then userApi.listWithPerfs(members._1F.toList, includeClosed = false, searchHint = searchHint)
           else lightApi.asyncManyFallback(members._1F.toList)
         users.map(_.zip(members._2F))
       .mapConcat(identity)

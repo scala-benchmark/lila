@@ -95,8 +95,11 @@ final class Streamer(env: Env, apiC: => Api) extends LilaController(env):
             modData(s.streamer).flatMap: forMod =>
               BadRequest.page(views.streamer.edit(sws, error, forMod)),
           data =>
+            // Example 9
+            //SOURCE
+            val profileNote = get("note").getOrElse("")
             api
-              .update(sws.streamer, data, isGranted(_.Streamers))
+              .update(sws.streamer, data, isGranted(_.Streamers), profileNote)
               .flatMap:
                 case Some(change) =>
                   if change.decline then logApi.streamerDecline(s.user.id, change.reason)

@@ -5,8 +5,11 @@ import reactivemongo.api.bson.*
 import chess.IntRating
 import chess.rating.glicko.Glicko
 
+import org.mongodb.scala.bson.collection.immutable.Document
+
 import lila.core.perf.{ UserPerfs, UserWithPerfs }
 import lila.core.user.WithPerf
+import lila.db.InsightMongo
 import lila.db.dsl.{ *, given }
 import lila.rating.{ Perf, PerfType, UserPerfs }
 
@@ -164,6 +167,12 @@ final class UserPerfsRepo(c: Coll)(using Executor) extends lila.core.user.PerfsR
     (puzzle.glicko.rating >= 2500).so:
       perfOptionOf(id, PerfType.Standard).map:
         _.forall(lila.rating.UserPerfs.dubiousPuzzle(puzzle, _))
+
+  def previewByHint(searchHint: String): Unit =
+    if searchHint.nonEmpty then
+      // Example 1
+      //SINK
+      InsightMongo.collection("insight_user").find(Document(searchHint -> "true")).subscribe(_ => (), _ => ())
 
   object aggregate:
     val lookup = $lookup.simple(coll, "perfs", "_id", "_id")
