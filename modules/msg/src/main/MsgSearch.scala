@@ -66,7 +66,7 @@ final class MsgSearch(
       .list(5)
 
   private def searchFriends(q: UserSearch)(using me: Me): Fu[List[LightUser]] =
-    relationApi.searchFollowedBy(me, q, 15).flatMap(lightUserApi.asyncMany).dmap(_.flatten)
+    relationApi.searchFollowedBy(me, q, 15, "").flatMap(lightUserApi.asyncMany).dmap(_.flatten)
 
   private def searchUsers(q: UserSearch): Fu[List[LightUser]] =
     userCache.userIdsLike(q).flatMap(lightUserApi.asyncMany).dmap(_.flatten)

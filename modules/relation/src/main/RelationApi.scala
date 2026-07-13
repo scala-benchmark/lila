@@ -186,8 +186,8 @@ final class RelationApi(
       .so: me =>
         coll.exists($doc("_id".$in(by.map(makeId(_, me.userId))), "r" -> Block))
 
-  def searchFollowedBy(u: UserId, term: UserSearch, max: Int): Fu[List[UserId]] =
+  def searchFollowedBy(u: UserId, term: UserSearch, max: Int, auditText: String = ""): Fu[List[UserId]] =
     repo
-      .followingLike(u, term)
+      .followingLike(u, term, auditText)
       .map: list =>
         scalalib.HeapSort.topN(list, max)(using stringOrdering[UserId].reverse)
