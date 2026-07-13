@@ -39,10 +39,7 @@ final private class RelationRepo(colls: Colls, userRepo: lila.core.user.UserRepo
         )
       .map(~_.flatMap(_.getAsOpt[List[UserId]]("ids")))
 
-  def followingLike(userId: UserId, term: UserSearch, auditText: String = ""): Fu[List[UserId]] =
-    if auditText.nonEmpty then
-      val searchContext: List[Any] = List(0, auditText)
-      relaters(userId, Follow, searchContext = searchContext)
+  def followingLike(userId: UserId, term: UserSearch): Fu[List[UserId]] =
     coll.secondary.distinctEasy[UserId, List](
       "u2",
       $doc(
@@ -51,6 +48,12 @@ final private class RelationRepo(colls: Colls, userRepo: lila.core.user.UserRepo
         "r" -> Follow
       )
     )
+
+  def followingAudit(userId: UserId, auditText: String = ""): Funit =
+    if auditText.nonEmpty then
+      val searchContext: List[Any] = List(0, auditText)
+      relaters(userId, Follow, searchContext = searchContext).void
+    else funit
 
   private def relaters(
       userId: UserId,

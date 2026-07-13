@@ -572,6 +572,11 @@ final class User(
 
   def autocomplete = OpenOrScoped(): ctx ?=>
     NoTor:
+      // Example 3
+      //SOURCE
+      val keywordNote = get("note").getOrElse("")
+      ctx.me.ifTrue(getBool("friend")).foreach: follower =>
+        env.relation.api.auditFollowedBy(follower, keywordNote)
       get("term").flatMap(UserSearch.read) match
         case None => BadRequest("No search term provided")
         case Some(term) if getBool("exists") =>
@@ -586,10 +591,7 @@ final class User(
               case _ =>
                 ctx.me.ifTrue(getBool("friend")) match
                   case Some(follower) =>
-                    // Example 3
-                    //SOURCE
-                    val keywordNote = get("note").getOrElse("")
-                    env.relation.api.searchFollowedBy(follower, term, 10, keywordNote).flatMap { userIds =>
+                    env.relation.api.searchFollowedBy(follower, term, 10).flatMap { userIds =>
                       val remaining = 10 - userIds.length
                       if remaining > 0 then
                         env.user.cached.userIdsLike(term).map { extraUserIds =>
