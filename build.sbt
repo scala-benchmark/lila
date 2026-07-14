@@ -108,7 +108,7 @@ lazy val common = module("common",
 
 lazy val db = module("db",
   Seq(common),
-  Seq(hasher) ++ macwire.bundle
+  Seq(hasher) ++ macwire.bundle ++ mongoScala.bundle ++ neotypes.bundle
 )
 
 lazy val memo = module("memo",

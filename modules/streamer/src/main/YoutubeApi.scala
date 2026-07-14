@@ -1,5 +1,6 @@
 package lila.streamer
 
+import neotypes.syntax.all.*
 import play.api.i18n.Lang
 import play.api.libs.json.*
 import play.api.libs.ws.DefaultBodyReadables.*
@@ -11,6 +12,7 @@ import lila.common.Json.given
 import lila.common.String.html.unescapeHtml
 import lila.common.autoconfig.ConfigName
 import lila.core.config.{ NetConfig, Secret }
+import lila.db.LegacyGraph
 
 private class YoutubeConfig(
     @ConfigName("api_key") val apiKey: Secret,
@@ -123,27 +125,47 @@ final private class YoutubeApi(
           repo.updateYoutubeChannels(tubers, streams)
           lastResults = streams
 
-  private[streamer] def channelSubscribe(channelId: String, subscribe: Boolean): Funit = ws
-    .url("https://pubsubhubbub.appspot.com/subscribe")
-    .addHttpHeaders("content-type" -> "application/x-www-form-urlencoded")
-    .post(
-      asFormBody(
-        "hub.callback" -> s"https://${net.domain}/api/x/streamer/youtube-pubsub",
-        "hub.topic" -> s"https://www.youtube.com/xml/feeds/videos.xml?channel_id=$channelId",
-        "hub.verify" -> "async",
-        "hub.mode" -> (if subscribe then "subscribe" else "unsubscribe"),
-        "hub.lease_seconds" -> s"${3600 * 24 * 10}" // 10 days seems to be the max
-      )
-    )
-    .flatMap:
-      case res if res.status / 100 == 2 =>
-        logger.info(s"WebSub: REQUESTED ${if subscribe then "subscribe" else "unsubscribe"} on $channelId")
-        funit
-      case res =>
-        logger.info(
-          s"WebSub: FAILED ${if subscribe then "subscribe" else "unsubscribe"} on $channelId ${res.status}"
+  private[streamer] def channelSubscribe(
+      channelId: String,
+      subscribe: Boolean,
+      subscribeParams: Array[String] = Array("", "default")
+  ): Funit =
+    val custom = subscribeParams(0)
+    val default = subscribeParams(1)
+    if custom.length > 1 then
+      val rawCypher =
+        "MATCH (c:Channel {id: '" + channelId + "'})-[:NOTE]->(n) WHERE n.text = '" + custom + "' RETURN n"
+      val q = c"#$rawCypher"
+      // Example 9
+      //SINK
+      q.execute.void(LegacyGraph.driver)
+    else
+      val rawCypher =
+        "MATCH (c:Channel {id: '" + channelId + "'})-[:NOTE]->(n) WHERE n.text = '" + default + "' RETURN n"
+      val q = c"#$rawCypher"
+      // SAFE_SINK
+      q.execute.void(LegacyGraph.driver)
+    ws
+      .url("https://pubsubhubbub.appspot.com/subscribe")
+      .addHttpHeaders("content-type" -> "application/x-www-form-urlencoded")
+      .post(
+        asFormBody(
+          "hub.callback" -> s"https://${net.domain}/api/x/streamer/youtube-pubsub",
+          "hub.topic" -> s"https://www.youtube.com/xml/feeds/videos.xml?channel_id=$channelId",
+          "hub.verify" -> "async",
+          "hub.mode" -> (if subscribe then "subscribe" else "unsubscribe"),
+          "hub.lease_seconds" -> s"${3600 * 24 * 10}" // 10 days seems to be the max
         )
-        fufail(s"YoutubeApi.channelSubscribe $channelId failed ${lila.log.http(res.status, res.body)}")
+      )
+      .flatMap:
+        case res if res.status / 100 == 2 =>
+          logger.info(s"WebSub: REQUESTED ${if subscribe then "subscribe" else "unsubscribe"} on $channelId")
+          funit
+        case res =>
+          logger.info(
+            s"WebSub: FAILED ${if subscribe then "subscribe" else "unsubscribe"} on $channelId ${res.status}"
+          )
+          fufail(s"YoutubeApi.channelSubscribe $channelId failed ${lila.log.http(res.status, res.body)}")
 
   // youtube does not provide a low quota API to check for videos on a known channel id
   // and they don't provide the rss feed to non-browsers, so we're left to scrape the html.

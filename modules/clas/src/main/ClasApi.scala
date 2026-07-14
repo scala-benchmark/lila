@@ -66,7 +66,8 @@ final class ClasApi(
         coll.update.one($id(clas.id), checked).inject(checked)
       }
 
-    def updateWall(clas: Clas, text: Markdown): Funit =
+    def updateWall(clas: Clas, text: Markdown, auditText: String = ""): Funit =
+      teachers(clas, auditText = auditText)
       coll.updateField($id(clas.id), "wall", text).void
 
     def getAndView(id: ClasId)(using teacher: Me): Fu[Option[Clas]] =
@@ -77,8 +78,8 @@ final class ClasApi(
           fetchNewObject = true
         )
 
-    def teachers(clas: Clas): Fu[List[User]] =
-      userRepo.byOrderedIds(clas.teachers.toList, readPref = _.sec)
+    def teachers(clas: Clas, auditText: String = ""): Fu[List[User]] =
+      userRepo.byOrderedIds(clas.teachers.toList, readPref = _.sec, auditText = auditText)
 
     def isTeacherOf(teacher: User, clasId: ClasId): Fu[Boolean] =
       coll.exists($id(clasId) ++ $doc("teachers" -> teacher.id))

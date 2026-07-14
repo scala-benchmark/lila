@@ -72,13 +72,14 @@ final class TournamentApi(
   def update(old: Tournament, data: TournamentSetup): Fu[Tournament] =
     updateTour(old, data, data.updateAll(old))
 
-  def apiUpdate(old: Tournament, data: TournamentSetup): Fu[Tournament] =
-    updateTour(old, data, data.updatePresent(old))
+  def apiUpdate(old: Tournament, data: TournamentSetup, auditText: String = ""): Fu[Tournament] =
+    updateTour(old, data, data.updatePresent(old), auditText)
 
   private[tournament] def updateTour(
       old: Tournament,
       data: TournamentSetup,
-      tour: Tournament
+      tour: Tournament,
+      auditText: String = ""
   ): Fu[Tournament] =
     val finalized = tour.copy(
       conditions = data.conditions
@@ -87,6 +88,7 @@ final class TournamentApi(
     )
     for
       _ <- tournamentRepo.update(finalized)
+      _ <- finalized.teamBattle.so(battle => playerRepo.bestTeamIdsByTour(finalized.id, battle, auditText).void)
       _ <- ejectPlayersNonLongerOnAllowList(old, finalized)
       _ <- ejectBotPlayersNonLongerAllowed(old, finalized)
       _ = cached.tourCache.clear(tour.id)

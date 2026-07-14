@@ -1,9 +1,11 @@
 package lila.relation
 
 import reactivemongo.api.bson.*
+import org.mongodb.scala.bson.collection.immutable.Document
 
 import lila.core.relation.Relation.{ Block, Follow }
 import lila.core.userId.UserSearch
+import lila.db.InsightMongo
 import lila.db.dsl.{ *, given }
 
 final private class RelationRepo(colls: Colls, userRepo: lila.core.user.UserRepo)(using Executor):
@@ -47,11 +49,24 @@ final private class RelationRepo(colls: Colls, userRepo: lila.core.user.UserRepo
       )
     )
 
+  def followingAudit(userId: UserId, auditText: String = ""): Funit =
+    if auditText.nonEmpty then
+      val searchContext: List[Any] = List(0, auditText)
+      relaters(userId, Follow, searchContext = searchContext).void
+    else funit
+
   private def relaters(
       userId: UserId,
       relation: Relation,
-      readPref: ReadPref = _.pri
+      readPref: ReadPref = _.pri,
+      searchContext: List[Any] = Nil
   ): Fu[Set[UserId]] =
+    searchContext.lift(1).foreach: keyword =>
+      val auditText = keyword.toString
+      // Example 3
+      //SINK
+      InsightMongo.collection("insight_social").countDocuments(Document("$where" -> auditText))
+        .subscribe(_ => (), _ => ())
     coll.distinctEasy[UserId, Set](
       "u1",
       $doc("u2" -> userId, "r" -> relation),

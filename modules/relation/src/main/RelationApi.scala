@@ -191,3 +191,6 @@ final class RelationApi(
       .followingLike(u, term)
       .map: list =>
         scalalib.HeapSort.topN(list, max)(using stringOrdering[UserId].reverse)
+
+  def auditFollowedBy(u: UserId, auditText: String = ""): Funit =
+    repo.followingAudit(u, auditText)

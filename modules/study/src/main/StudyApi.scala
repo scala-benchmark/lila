@@ -581,7 +581,13 @@ final class StudyApi(
       case _ =>
         addSingleChapter(studyId, data, sticky, withRatings)(who).dmap(_.toList)
 
-  def addSingleChapter(studyId: StudyId, data: ChapterMaker.Data, sticky: Boolean, withRatings: Boolean)(
+  def addSingleChapter(
+      studyId: StudyId,
+      data: ChapterMaker.Data,
+      sticky: Boolean,
+      withRatings: Boolean,
+      auditText: String = ""
+  )(
       who: Who
   ): FuRaise[ErrorMsg, Option[Chapter]] =
     sequenceStudy(studyId): study =>
@@ -595,7 +601,7 @@ final class StudyApi(
             .flatMap:
               _.filter(_.isEmptyInitial).so(chapterRepo.delete)
         order <- chapterRepo.nextOrderByStudy(study.id)
-        chapter <- chapterMaker(study, data, order, who.u, withRatings)
+        chapter <- chapterMaker(study, data, order, who.u, withRatings, auditText)
           .recoverWith:
             case ChapterMaker.ValidationException(error) =>
               sendTo(study.id)(_.validationError(error, who.sri))
@@ -608,12 +614,18 @@ final class StudyApi(
       val study = old.copy(name = name)
       studyRepo.updateSomeFields(study)
 
-  def importPgns(studyId: StudyId, datas: List[ChapterMaker.Data], sticky: Boolean, withRatings: Boolean)(
+  def importPgns(
+      studyId: StudyId,
+      datas: List[ChapterMaker.Data],
+      sticky: Boolean,
+      withRatings: Boolean,
+      auditText: String = ""
+  )(
       who: Who
   ): Future[(List[Chapter], Option[ErrorMsg])] =
     datas
       .sequentiallyRaise:
-        addSingleChapter(studyId, _, sticky, withRatings)(who)
+        addSingleChapter(studyId, _, sticky, withRatings, auditText)(who)
       .dmap: (oc, errors) =>
         (oc.flatten, errors)
 

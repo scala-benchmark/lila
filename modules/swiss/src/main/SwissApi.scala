@@ -82,7 +82,7 @@ final class SwissApi(
       _ = cache.featuredInTeam.invalidate(swiss.teamId)
     yield swiss
 
-  def update(swissId: SwissId, data: SwissForm.SwissData): Fu[Option[Swiss]] =
+  def update(swissId: SwissId, data: SwissForm.SwissData, auditText: String = ""): Fu[Option[Swiss]] =
     Sequencing(swissId)(cache.swissCache.byId): old =>
       val position =
         if old.isCreated || old.settings.position.isDefined then
@@ -119,15 +119,15 @@ final class SwissApi(
           else s
       for
         _ <- mongo.swiss.update.one($id(old.id), addFeaturable(swiss))
-        _ <- (swiss.perfType != old.perfType).so(recomputePlayerRatings(swiss))
+        _ <- (swiss.perfType != old.perfType).so(recomputePlayerRatings(swiss, auditText))
       yield
         cache.swissCache.clear(swiss.id)
         cache.roundInfo.put(swiss.id, fuccess(swiss.roundInfo.some))
         socket.reload(swiss.id)
         swiss.some
 
-  private def recomputePlayerRatings(swiss: Swiss): Funit = for
-    ranking <- rankingApi(swiss)
+  private def recomputePlayerRatings(swiss: Swiss, auditText: String = ""): Funit = for
+    ranking <- rankingApi(swiss, auditText)
     perfs <- userApi.perfOf(ranking.keys, swiss.perfType)
     update = mongo.player.update(ordered = false)
     elements <- perfs.parallel: (userId, perf) =>

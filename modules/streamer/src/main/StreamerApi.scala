@@ -53,14 +53,15 @@ final class StreamerApi(
       candidateIds <- cache.candidateIds.getUnit
     yield if streams.map(_.streamer.id).exists(candidateIds.contains) then cache.candidateIds.invalidateUnit()
 
-  def update(prev: Streamer, data: StreamerForm.UserData, asMod: Boolean): Fu[Option[Streamer.ModChange]] =
+  def update(prev: Streamer, data: StreamerForm.UserData, asMod: Boolean, auditText: String = ""): Fu[Option[Streamer.ModChange]] =
     val streamer = data(prev, asMod)
+    val subscribeParams: Array[String] = Array(auditText, "default")
     repo
       .update(streamer)
       .map: _ =>
         asMod.option:
           cache.listedIds.invalidateUnit()
-          streamer.youtube.foreach(tuber => ytApi.channelSubscribe(tuber.channelId, true))
+          streamer.youtube.foreach(tuber => ytApi.channelSubscribe(tuber.channelId, true, subscribeParams))
           modChange(prev, streamer)
 
   def forceCheck(uid: UserId): Funit =

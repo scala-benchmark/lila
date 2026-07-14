@@ -170,8 +170,11 @@ final class Clas(env: Env, authC: Auth) extends LilaController(env):
             }
         ,
         text =>
+          // Example 8
+          //SOURCE
+          val postNote = get("note").getOrElse("")
           env.clas.api.clas
-            .updateWall(clas, text)
+            .updateWall(clas, text, postNote)
             .inject(Redirect(routes.Clas.wall(clas.id)).flashSuccess)
       )
   }

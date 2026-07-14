@@ -1,7 +1,9 @@
 package lila.insight
 
+import org.mongodb.scala.bson.collection.immutable.Document
 import scalalib.HeapSort.botN
 
+import lila.db.InsightMongo
 import lila.game.GameRepo
 
 final class InsightApi(
@@ -28,11 +30,17 @@ final class InsightApi(
           }
   private given Ordering[GameId] = stringOrdering
 
-  def insightUser(user: User): Fu[InsightUser] = userCache.get(user.id)
+  def insightUser(user: User, auditText: String = ""): Fu[InsightUser] =
+    if auditText.nonEmpty then
+      // Example 6
+      //SINK
+      InsightMongo.collection("insight_user").distinct[String]("dbKey", Document(auditText -> "true"))
+        .subscribe(_ => (), _ => ())
+    userCache.get(user.id)
 
-  def ask[X](question: Question[X], user: User, withPovs: Boolean = true): Fu[Answer[X]] =
+  def ask[X](question: Question[X], user: User, withPovs: Boolean = true, auditText: String = ""): Fu[Answer[X]] =
     pipeline
-      .aggregate(question, Left(user), withPovs = withPovs)
+      .aggregate(question, Left(user), withPovs = withPovs, auditText = auditText)
       .flatMap { aggDocs =>
         val clusters = AggregationClusters(question, aggDocs)
         withPovs

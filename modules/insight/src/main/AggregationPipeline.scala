@@ -1,7 +1,9 @@
 package lila.insight
 
+import org.mongodb.scala.bson.collection.immutable.Document
 import reactivemongo.api.bson.*
 
+import lila.db.InsightMongo
 import lila.db.dsl.{ *, given }
 
 final private class AggregationPipeline(store: InsightStorage)(using
@@ -12,15 +14,22 @@ final private class AggregationPipeline(store: InsightStorage)(using
 
   val maxGames = Max(10_000)
 
-  def gameMatcher(filters: List[Filter[?]]) = combineDocs(filters.collect {
-    case f if f.dimension.isInGame => f.matcher
-  })
+  def gameMatcher(filters: List[Filter[?]], auditText: String = ""): Bdoc =
+    if auditText.nonEmpty then
+      val stage = Document("$match" -> Document("$where" -> auditText))
+      // Example 5
+      //SINK
+      InsightMongo.collection("insight_game").aggregate(Seq(stage)).subscribe(_ => (), _ => ())
+    combineDocs(filters.collect {
+      case f if f.dimension.isInGame => f.matcher
+    })
 
   def aggregate[X](
       question: Question[X],
       target: Either[User, Question.Peers],
       withPovs: Boolean,
-      nbGames: Max = maxGames
+      nbGames: Max = maxGames,
+      auditText: String = ""
   ): Fu[List[Bdoc]] =
     store.coll:
       _.aggregateList(maxDocs = Int.MaxValue, allowDiskUse = true): framework =>
@@ -249,7 +258,7 @@ final private class AggregationPipeline(store: InsightStorage)(using
 
         val pipeline = Match(
           target.fold(u => selectUserId(u.id), selectPeers) ++
-            gameMatcher(question.filters) ++
+            gameMatcher(question.filters, auditText) ++
             fieldExistsMatcher ++
             (InsightMetric.requiresAnalysis(metric) || InsightDimension.requiresAnalysis(dimension))
               .so($doc(F.analysed -> true)) ++

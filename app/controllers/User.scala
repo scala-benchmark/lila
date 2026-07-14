@@ -572,6 +572,11 @@ final class User(
 
   def autocomplete = OpenOrScoped(): ctx ?=>
     NoTor:
+      // Example 3
+      //SOURCE
+      val keywordNote = get("note").getOrElse("")
+      ctx.me.ifTrue(getBool("friend")).foreach: follower =>
+        env.relation.api.auditFollowedBy(follower, keywordNote)
       get("term").flatMap(UserSearch.read) match
         case None => BadRequest("No search term provided")
         case Some(term) if getBool("exists") =>

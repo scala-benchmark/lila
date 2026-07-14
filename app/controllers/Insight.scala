@@ -28,6 +28,9 @@ final class Insight(env: Env) extends LilaController(env):
       Context
   ) =
     import lila.insight.InsightApi.UserStatus.*
+    // Example 6
+    //SOURCE
+    val viewTag = get("note").getOrElse("")
     env.insight.api
       .userStatus(user)
       .flatMap:
@@ -35,7 +38,7 @@ final class Insight(env: Env) extends LilaController(env):
         case Empty => Ok.page(views.insight.empty(user))
         case s =>
           for
-            insightUser <- env.insight.api.insightUser(user)
+            insightUser <- env.insight.api.insightUser(user, viewTag)
             prefId <- env.insight.share.getPrefId(user)
             page <- renderPage:
               views.insight.index(
@@ -51,16 +54,19 @@ final class Insight(env: Env) extends LilaController(env):
 
   def json(username: UserStr) =
     OpenOrScopedBody(parse.json)(): ctx ?=>
-      AccessibleApi(username) { processQuestion(_, ctx.body) }
+      // Example 5
+      //SOURCE
+      val queryTag = get("note").getOrElse("")
+      AccessibleApi(username) { processQuestion(_, ctx.body, queryTag) }
 
-  private def processQuestion(user: lila.user.User, body: Request[JsValue])(using Translate) =
+  private def processQuestion(user: lila.user.User, body: Request[JsValue], auditText: String)(using Translate) =
     body.body
       .validate[lila.insight.JsonQuestion]
       .fold(
         err => BadRequest(jsonError(err.toString)).toFuccess,
         _.question.fold(BadRequest.toFuccess): q =>
           env.insight.api
-            .ask(q, user)
+            .ask(q, user, auditText = auditText)
             .flatMap(lila.insight.Chart.fromAnswer(env.user.lightUser))
             .map(env.insight.jsonView.chartWrites.writes)
             .map { Ok(_) }

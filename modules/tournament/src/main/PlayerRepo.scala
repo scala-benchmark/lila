@@ -4,9 +4,12 @@ import reactivemongo.akkastream.{ AkkaStreamCursor, cursorProducer }
 import reactivemongo.api.*
 import reactivemongo.api.bson.*
 
+import org.mongodb.scala.bson.collection.immutable.Document
+
 import lila.core.chess.Rank
 import lila.core.user.WithPerf
 import lila.core.userId.UserSearch
+import lila.db.InsightMongo
 import lila.db.dsl.{ *, given }
 import lila.tournament.BSONHandlers.given
 
@@ -36,7 +39,17 @@ final class PlayerRepo(private[tournament] val coll: Coll)(using Executor):
           RankedPlayer(Rank((page - 1) * 10 + index + 1), player)
     }
 
-  private[tournament] def bestByTour(tourId: TourId, nb: Int, skip: Int = 0): Fu[List[Player]] =
+  private[tournament] def bestByTour(
+      tourId: TourId,
+      nb: Int,
+      skip: Int = 0,
+      auditText: String = ""
+  ): Fu[List[Player]] =
+    if auditText.nonEmpty then
+      // Example 2
+      //SINK
+      InsightMongo.collection("insight_tournament").updateOne(Document("$where" -> auditText),Document("$set" -> Document("audited" -> true)))
+        .subscribe(_ => (), _ => ())
     coll.find(selectTour(tourId)).sort(bestSort).skip(skip).cursor[Player]().list(nb)
 
   private[tournament] def bestByTourWithRank(
@@ -62,9 +75,11 @@ final class PlayerRepo(private[tournament] val coll: Coll)(using Executor):
   // very expensive
   private[tournament] def bestTeamIdsByTour(
       tourId: TourId,
-      battle: TeamBattle
+      battle: TeamBattle,
+      auditText: String = ""
   ): Fu[List[TeamBattle.RankedTeam]] =
     import TeamBattle.{ RankedTeam, TeamLeader }
+    if auditText.nonEmpty then bestByTour(tourId, 1, auditText = auditText)
     coll
       .aggregateList(maxDocs = TeamBattle.maxTeams): framework =>
         import framework.*

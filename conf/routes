@@ -475,6 +475,7 @@ GET   /simul/$id<\w{8}>                       controllers.Simul.show(id: SimulId
 GET   /simul/$id<\w{8}>/edit                  controllers.Simul.edit(id: SimulId)
 POST  /simul/$id<\w{8}>/edit                  controllers.Simul.update(id: SimulId)
 POST  /simul/$id<\w{8}>/host-ping             controllers.Simul.hostPing(id: SimulId)
+POST  /simul/$id<\w{8}>/text                  controllers.Simul.setText(id: SimulId)
 POST  /simul/$id<\w{8}>/accept/:user          controllers.Simul.accept(id: SimulId, user: UserStr)
 POST  /simul/$id<\w{8}>/reject/:user          controllers.Simul.reject(id: SimulId, user: UserStr)
 POST  /simul/$id<\w{8}>/start                 controllers.Simul.start(id: SimulId)

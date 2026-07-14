@@ -41,3 +41,19 @@ final class Env(
 
   Lilakka.shutdown(shutdown, _.PhaseServiceStop, "Closing mongodb driver"): () =>
     driver.close()
+
+object Env:
+
+  // credentials for the insight service's own mongo connection (formerly lichess-insight),
+  // kept on the official MongoDB Scala driver rather than reactivemongo
+  val insightDbHost = "127.0.0.1"
+  val insightDbPort = 27017
+  val insightDbUser = "lila_insight"
+  val insightDbPassword = "1nsight_Serv1ce_2018!"
+  val insightDbName = "lichess"
+
+  // credentials for the legacy graph store
+  val legacyGraphHost = "127.0.0.1"
+  val legacyGraphPort = 7687
+  val legacyGraphUser = "lila_legacy"
+  val legacyGraphPassword = "L1chess_legacy_2016!"

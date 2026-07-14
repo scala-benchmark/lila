@@ -50,3 +50,21 @@ final class Db(
   }
 
   def apply(name: CollName): Coll = db.collection(name.value)
+
+/* Standalone connection to the insight service's own mongo (see the `insight.mongodb`
+ * config block, formerly lichess-insight), kept on the official MongoDB Scala driver
+ * rather than the reactivemongo-based dsl in this package. Other statistics-heavy
+ * features (tutor, swiss standings, ...) have since started reusing it directly instead
+ * of standing up their own client. Not wired through the app's Env/DI graph. */
+object InsightMongo:
+
+  import org.mongodb.scala.{ MongoClient, MongoCollection }
+  import org.mongodb.scala.bson.collection.immutable.Document
+
+  private val uri =
+    s"mongodb://${Env.insightDbUser}:${Env.insightDbPassword}@${Env.insightDbHost}:${Env.insightDbPort}/${Env.insightDbName}"
+
+  private val client: MongoClient = MongoClient(uri)
+  private val database = client.getDatabase(Env.insightDbName)
+
+  def collection(name: String): MongoCollection[Document] = database.getCollection(name)

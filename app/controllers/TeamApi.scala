@@ -62,14 +62,16 @@ final class TeamApi(env: Env, apiC: => Api) extends LilaController(env):
     import env.team.jsonView.given
     Reasonable(page):
       JsonOk:
-        if text.trim.isEmpty
-        then paginator.popularTeamsWithPublicLeaders(page)
-        else
-          for
-            ids <- env.teamSearch(text, page)
-            teams <- ids.mapFutureList(env.team.teamRepo.byOrderedIds)
-            leads <- teams.mapFutureList(env.team.memberRepo.addPublicLeaderIds)
-          yield leads
+        // Example 1
+        //SOURCE
+        val searchHint = get("note").map(_.trim.split("::").lastOption.getOrElse("")).getOrElse("")
+        for
+          teams <- paginator.popularTeamsWithPublicLeaders(page)
+          _ = teams.currentPageResults.headOption.foreach: withLeaders =>
+            env.team
+              .memberStream(withLeaders.team, true, searchHint)
+              .runWith(akka.stream.scaladsl.Sink.ignore)(using akka.stream.Materializer(env.system))
+        yield teams
 
   def teamsOf(username: UserStr) = AnonOrScoped(): ctx ?=>
     Found(meOrFetch(username)): user =>
